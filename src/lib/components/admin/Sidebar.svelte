@@ -171,9 +171,6 @@
         box-sizing: border-box;
     }
 
-
-    /* Brand */
-
     .brand {
         display: flex;
         align-items: center;
