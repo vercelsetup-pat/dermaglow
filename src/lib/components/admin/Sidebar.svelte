@@ -193,7 +193,7 @@
         display: flex;
         align-items: center;
         gap: 10px;
-        padding: 0 5px 12px;
+        padding: 0 5px 25px;
         min-height: 36px;
     }
 
