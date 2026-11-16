@@ -38,7 +38,6 @@
 
 <aside class="sidebar" class:collapsed>
 
-    <!-- Brand -->
     <div class="brand">
         <div class="brand-info">
             <span class="brand-name">ADMIN PANEL</span>
@@ -57,9 +56,6 @@
         </button>
     </div>
 
-
-
-    <!-- Navigation -->
     <nav>
         {#each menuGroups as group}
             <div class="menu-group">
@@ -135,9 +131,7 @@
         {/each}
     </nav>
 
-    <!-- Bottom Section -->
     <div class="sidebar-bottom">
-
         <div class="upgrade-card">
               <img src={Logo} alt="Derma Glow Logo" />
         </div>
@@ -146,9 +140,7 @@
             <span class="status-dot"></span>
             <span>System operational</span>
         </div>
-
     </div>
-
 </aside>
 
 <style>
