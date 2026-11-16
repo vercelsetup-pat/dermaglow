@@ -23,6 +23,8 @@
         }
     ];
 
+    let collapsed = $state(false);
+
     function isActive(href: string) {
         if (href === '/admin') {
             return page.url.pathname === '/admin';
@@ -33,7 +35,7 @@
     }
 </script>
 
-<aside class="sidebar">
+<aside class="sidebar" class:collapsed>
 
     <!-- Brand -->
     <div class="brand">
@@ -43,6 +45,18 @@
             <span class="brand-name">DERMA GLOW</span>
             <span class="brand-subtitle">ADMIN PANEL</span>
         </div>
+
+        <button
+            class="sidebar-toggle"
+            onclick={() => collapsed = !collapsed}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-expanded={!collapsed}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+            <svg viewBox="0 0 24 24">
+                <path d="m15 18-6-6 6-6" />
+            </svg>
+        </button>
     </div>
 
     <div class="sidebar-divider"></div>
@@ -57,6 +71,7 @@
                         href={item.href}
                         class="menu-item"
                         class:active={isActive(item.href)}
+                        title={collapsed ? item.label : undefined}
                     >
                         <span class="menu-icon">
 
@@ -155,6 +170,7 @@
     .sidebar {
         width: 225px;
         min-width: 225px;
+        flex: 0 0 225px;
         height: 100vh;
         position: sticky;
         top: 0;
@@ -163,9 +179,13 @@
         display: flex;
         flex-direction: column;
         padding: 22px 13px 14px;
+        overflow-x: hidden;
         overflow-y: auto;
         color: #344054;
+        transition: width .25s ease, flex-basis .25s ease, min-width .25s ease;
+        box-sizing: border-box;
     }
+
 
     /* Brand */
 
@@ -173,12 +193,14 @@
         display: flex;
         align-items: center;
         gap: 10px;
-        padding: 0 9px 12px;
+        padding: 0 5px 12px;
+        min-height: 36px;
     }
 
     .brand-logo {
         width: 30px;
         height: 30px;
+        flex-shrink: 0;
         border-radius: 8px;
         background: #3475ff;
         color: white;
@@ -192,6 +214,9 @@
         display: flex;
         flex-direction: column;
         gap: 3px;
+        flex: 1;
+        min-width: 0;
+        white-space: nowrap;
     }
 
     .brand-name {
@@ -208,8 +233,39 @@
         font-weight: 600;
     }
 
+    .sidebar-toggle {
+        width: 25px;
+        height: 25px;
+        flex-shrink: 0;
+        display: grid;
+        place-items: center;
+        border: none;
+        background: transparent;
+        color: #8993a1;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background .2s ease, color .2s ease, transform .25s ease;
+    }
+
+    .sidebar-toggle:hover {
+        background: #edf3ff;
+        color: #3475ff;
+    }
+
+    .sidebar-toggle svg {
+        width: 16px;
+        height: 16px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        transition: transform .25s ease;
+    }
+
     .sidebar-divider {
         height: 1px;
+        flex-shrink: 0;
         background: #edf0f4;
         margin: 0 -13px 17px;
     }
@@ -240,7 +296,8 @@
         font-size: 11.5px;
         font-weight: 500;
         position: relative;
-        transition: all .2s ease;
+        white-space: nowrap;
+        transition: background .2s ease, color .2s ease;
     }
 
     .menu-item:hover {
@@ -284,18 +341,23 @@
         stroke-linejoin: round;
     }
 
+    .menu-label {
+        white-space: nowrap;
+    }
+
     /* Bottom */
 
     .sidebar-bottom {
         margin-top: auto;
         padding-top: 20px;
+        min-width: 0;
     }
 
     .upgrade-card {
-        padding: 12px 12px;
+        padding: 12px;
         border-radius: 12px;
         background: linear-gradient(145deg, #3979ff, #1746bd);
-        color: #ffffff;
+        color: white;
         margin-bottom: 15px;
     }
 
@@ -338,6 +400,26 @@
         color: rgba(255,255,255,.85);
     }
 
+    .upgrade-card strong {
+        display: block;
+        font-size: 12px;
+        margin-bottom: 5px;
+    }
+
+    .upgrade-card p {
+        font-size: 9px;
+        line-height: 1.6;
+        color: rgba(255,255,255,.8);
+        margin: 0 0 10px;
+    }
+
+    .upgrade-label {
+        font-size: 8px;
+        font-weight: 700;
+        letter-spacing: .8px;
+        color: rgba(255,255,255,.85);
+    }
+
     .sidebar-footer {
         display: flex;
         align-items: center;
@@ -346,11 +428,14 @@
         font-size: 9px;
         color: #98a2b3;
         border-top: 1px solid #edf0f4;
+        white-space: nowrap;
     }
+
 
     .status-dot {
         width: 7px;
         height: 7px;
+        flex-shrink: 0;
         border-radius: 50%;
         background: #45c58a;
     }
@@ -362,6 +447,92 @@
     .sidebar::-webkit-scrollbar-thumb {
         background: #e5e7eb;
         border-radius: 10px;
+    }
+
+    .sidebar.collapsed {
+        width: 72px;
+        min-width: 72px;
+        flex-basis: 72px;
+        padding: 22px 8px 14px;
+    }
+
+    .sidebar.collapsed .brand {
+        justify-content: center;
+        gap: 2px;
+        padding: 0 0 12px;
+    }
+
+    .sidebar.collapsed .brand-logo {
+        width: 28px;
+        height: 28px;
+    }
+
+    .sidebar.collapsed .brand-info {
+        display: none;
+    }
+
+    .sidebar.collapsed .sidebar-toggle {
+        width: 24px;
+        height: 24px;
+    }
+
+    .sidebar.collapsed .sidebar-toggle svg {
+        transform: rotate(180deg);
+    }
+
+    .sidebar.collapsed .sidebar-divider {
+        margin-left: -8px;
+        margin-right: -8px;
+    }
+
+    .sidebar.collapsed .menu-item {
+        justify-content: center;
+        padding: 0;
+        gap: 0;
+    }
+
+    .sidebar.collapsed .menu-item.active::before {
+        left: -8px;
+    }
+
+    .sidebar.collapsed .menu-label {
+        display: none;
+    }
+
+    .sidebar.collapsed .upgrade-card {
+        display: none;
+    }
+
+    .sidebar.collapsed .sidebar-footer {
+        justify-content: center;
+        padding: 13px 0 5px;
+    }
+
+    .sidebar.collapsed .sidebar-footer > span:last-child {
+        display: none;
+    }
+
+    .sidebar::-webkit-scrollbar {
+        width: 4px;
+    }
+
+    .sidebar::-webkit-scrollbar-thumb {
+        background: #e5e7eb;
+        border-radius: 10px;
+    }
+
+    @media (max-width: 760px) {
+        .sidebar {
+            width: 190px;
+            min-width: 190px;
+            flex-basis: 190px;
+        }
+
+        .sidebar.collapsed {
+            width: 72px;
+            min-width: 72px;
+            flex-basis: 72px;
+        }
     }
 
     @media (max-width: 760px) {
