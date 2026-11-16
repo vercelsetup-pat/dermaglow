@@ -5,10 +5,7 @@
     const menuGroups = [
         {
             items: [
-                { label: 'Dashboard', href: '/admin', icon: 'dashboard' },
-                { label: 'Orders', href: '/admin/orders', icon: 'orders' },
-                { label: 'Products', href: '/admin/products', icon: 'products' },
-                { label: 'Customers', href: '/admin/customers', icon: 'customers' }
+                { label: 'Dashboard', href: '/admin', icon: 'dashboard' }
             ]
         },
         {
