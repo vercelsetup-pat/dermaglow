@@ -37,7 +37,6 @@
 </script>
 
 <aside class="sidebar" class:collapsed>
-
     <div class="brand">
         <div class="brand-info">
             <span class="brand-name">ADMIN PANEL</span>

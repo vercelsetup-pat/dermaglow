@@ -193,7 +193,7 @@
         right: 7px;
         width: 6px;
         height: 6px;
-        background: #3475ff;
+        background: #29B24A;
         border-radius: 50%;
     }
 
@@ -208,7 +208,7 @@
         width: 36px;
         height: 36px;
         background: #eaf0ff;
-        color: #3475ff;
+        color: #29B24A;
         border-radius: 50%;
         display: grid;
         place-items: center;
