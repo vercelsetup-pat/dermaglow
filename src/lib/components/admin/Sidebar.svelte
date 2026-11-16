@@ -1,6 +1,7 @@
 
 <script lang="ts">
     import { page } from '$app/state';
+    import Logo from "#lib/assets/logo.png"
 
     const menuGroups = [
         {
@@ -39,8 +40,6 @@
 
     <!-- Brand -->
     <div class="brand">
-        <div class="brand-logo">D</div>
-
         <div class="brand-info">
             <span class="brand-name">DERMA GLOW</span>
             <span class="brand-subtitle">ADMIN PANEL</span>
@@ -142,19 +141,7 @@
     <div class="sidebar-bottom">
 
         <div class="upgrade-card">
-            <div class="upgrade-icon">
-                <svg viewBox="0 0 24 24">
-                    <path d="M12 2 15 9l7 3-7 3-3 7-3-7-7-3 7-3 3-7Z"/>
-                </svg>
-            </div>
-
-            <strong>Derma Glow</strong>
-
-            <p>
-                Manage your store, products and orders all in one place.
-            </p>
-
-            <span class="upgrade-label">ADMINISTRATION</span>
+              <img src={Logo} alt="Derma Glow Logo" />
         </div>
 
         <div class="sidebar-footer">
@@ -193,21 +180,8 @@
         display: flex;
         align-items: center;
         gap: 10px;
-        padding: 0 5px 25px;
+        padding: 0 10px 25px;
         min-height: 36px;
-    }
-
-    .brand-logo {
-        width: 30px;
-        height: 30px;
-        flex-shrink: 0;
-        border-radius: 8px;
-        background: #3475ff;
-        color: white;
-        display: grid;
-        place-items: center;
-        font-size: 18px;
-        font-weight: 800;
     }
 
     .brand-info {
@@ -350,68 +324,9 @@
     .upgrade-card {
         padding: 12px;
         border-radius: 12px;
-        background: linear-gradient(145deg, #3979ff, #1746bd);
+
         color: white;
         margin-bottom: 15px;
-    }
-
-    .upgrade-icon {
-        width: 27px;
-        height: 27px;
-        border-radius: 7px;
-        background: rgba(255,255,255,.2);
-        display: grid;
-        place-items: center;
-        margin-bottom: 11px;
-    }
-
-    .upgrade-icon svg {
-        width: 15px;
-        height: 15px;
-        fill: none;
-        stroke: white;
-        stroke-width: 1.7;
-        stroke-linejoin: round;
-    }
-
-    .upgrade-card strong {
-        display: block;
-        font-size: 12px;
-        margin-bottom: 5px;
-    }
-
-    .upgrade-card p {
-        font-size: 9px;
-        line-height: 1.6;
-        color: rgba(255,255,255,.8);
-        margin: 0 0 10px;
-    }
-
-    .upgrade-label {
-        font-size: 8px;
-        font-weight: 700;
-        letter-spacing: .8px;
-        color: rgba(255,255,255,.85);
-    }
-
-    .upgrade-card strong {
-        display: block;
-        font-size: 12px;
-        margin-bottom: 5px;
-    }
-
-    .upgrade-card p {
-        font-size: 9px;
-        line-height: 1.6;
-        color: rgba(255,255,255,.8);
-        margin: 0 0 10px;
-    }
-
-    .upgrade-label {
-        font-size: 8px;
-        font-weight: 700;
-        letter-spacing: .8px;
-        color: rgba(255,255,255,.85);
     }
 
     .sidebar-footer {
@@ -456,11 +371,7 @@
         padding: 0 0 12px;
     }
 
-    .sidebar.collapsed .brand-logo {
-        width: 28px;
-        height: 28px;
-    }
-
+   
     .sidebar.collapsed .brand-info {
         display: none;
     }
@@ -474,10 +385,7 @@
         transform: rotate(180deg);
     }
 
-    .sidebar.collapsed .sidebar-divider {
-        margin-left: -8px;
-        margin-right: -8px;
-    }
+    
 
     .sidebar.collapsed .menu-item {
         justify-content: center;
