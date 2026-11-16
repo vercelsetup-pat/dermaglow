@@ -59,7 +59,7 @@
         </button>
     </div>
 
-    <div class="sidebar-divider"></div>
+
 
     <!-- Navigation -->
     <nav>
@@ -263,13 +263,7 @@
         transition: transform .25s ease;
     }
 
-    .sidebar-divider {
-        height: 1px;
-        flex-shrink: 0;
-        background: #edf0f4;
-        margin: 0 -13px 17px;
-    }
-
+    
     /* Navigation */
 
     nav {
