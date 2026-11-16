@@ -1,7 +1,5 @@
-
 import type { RequestHandler } from './$types';
 
-import { json } from '@sveltejs/kit';
 import { asc } from 'drizzle-orm';
 
 import { db } from '#lib/db/index.ts';
@@ -22,11 +20,11 @@ export const GET: RequestHandler = async () => {
       data: result
     };
 
-    return json(response);
+    return Response.json(response);
   } catch (error) {
     console.error('GET categories error:', error);
 
-    return json(
+    return Response.json(
       {
         success: false,
         message: 'Failed to retrieve categories.'
@@ -46,7 +44,7 @@ export const POST: RequestHandler = async ({ request }) => {
       typeof body !== 'object' ||
       Array.isArray(body)
     ) {
-      return json(
+      return Response.json(
         { success: false, message: 'Invalid request body.' },
         { status: 400 }
       );
@@ -65,7 +63,7 @@ export const POST: RequestHandler = async ({ request }) => {
         : null;
 
     if (!name) {
-      return json(
+      return Response.json(
         {
           success: false,
           message: 'Category name is required.'
@@ -88,12 +86,11 @@ export const POST: RequestHandler = async ({ request }) => {
       data: newCategory
     };
 
-    return json(response, { status: 201 });
-
+    return Response.json(response, { status: 201 });
   } catch (error) {
     console.error('POST categories error:', error);
 
-    return json(
+    return Response.json(
       {
         success: false,
         message: 'Failed to create category.'
