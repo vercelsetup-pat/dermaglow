@@ -11,7 +11,9 @@
         {
             items: [
                 { label: 'Categories', href: '/admin/categories', icon: 'categories' },
-                { label: 'Subcategories', href: '/admin/subcategories', icon: 'subcategories' }
+                { label: 'Subcategories', href: '/admin/subcategories', icon: 'subcategories' },
+                { label: 'Products', href: '/admin/products', icon: 'products' },
+                { label: 'Orders', href: '/admin/orders', icon: 'orders' }
             ]
         },
         {
