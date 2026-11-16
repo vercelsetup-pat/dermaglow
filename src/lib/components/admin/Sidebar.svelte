@@ -174,7 +174,7 @@
         display: flex;
         align-items: center;
         gap: 10px;
-        padding: 0 9px 23px;
+        padding: 0 9px 12px;
     }
 
     .brand-logo {
