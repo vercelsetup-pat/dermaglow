@@ -4,33 +4,20 @@
 
     const menuGroups = [
         {
-            title: 'GENERAL',
             items: [
-                { label: 'Dashboard', href: '/admin', icon: 'dashboard' }
-            ]
-        },
-        {
-            title: 'CATALOG',
-            items: [
-                { label: 'Categories', href: '/admin/categories', icon: 'categories' },
-                { label: 'Subcategories', href: '/admin/subcategories', icon: 'subcategories' },
-                { label: 'Products', href: '/admin/products', icon: 'products' }
-            ]
-        },
-        {
-            title: 'SALES',
-            items: [
-                { label: 'Orders', href: '/admin/orders', icon: 'orders' }
-            ]
-        },
-        {
-            title: 'CUSTOMERS',
-            items: [
+                { label: 'Dashboard', href: '/admin', icon: 'dashboard' },
+                { label: 'Orders', href: '/admin/orders', icon: 'orders' },
+                { label: 'Products', href: '/admin/products', icon: 'products' },
                 { label: 'Customers', href: '/admin/customers', icon: 'customers' }
             ]
         },
         {
-            title: 'SETTINGS',
+            items: [
+                { label: 'Categories', href: '/admin/categories', icon: 'categories' },
+                { label: 'Subcategories', href: '/admin/subcategories', icon: 'subcategories' }
+            ]
+        },
+        {
             items: [
                 { label: 'Website Settings', href: '/admin/settings', icon: 'settings' }
             ]
@@ -48,28 +35,32 @@
 </script>
 
 <aside class="sidebar">
+
+    <!-- Brand -->
     <div class="brand">
         <div class="brand-logo">D</div>
+
         <div class="brand-info">
             <span class="brand-name">DERMA GLOW</span>
-            <span class="brand-subtitle">ADMINISTRATION</span>
+            <span class="brand-subtitle">ADMIN PANEL</span>
         </div>
     </div>
 
     <div class="sidebar-divider"></div>
 
+    <!-- Navigation -->
     <nav>
         {#each menuGroups as group}
             <div class="menu-group">
-                <p class="group-title">{group.title}</p>
 
                 {#each group.items as item}
                     <a
                         href={item.href}
-                        class:active={isActive(item.href)}
                         class="menu-item"
+                        class:active={isActive(item.href)}
                     >
                         <span class="menu-icon">
+
                             {#if item.icon === 'dashboard'}
                                 <svg viewBox="0 0 24 24">
                                     <rect x="3" y="3" width="7" height="7" rx="1.5"/>
@@ -77,6 +68,28 @@
                                     <rect x="3" y="14" width="7" height="7" rx="1.5"/>
                                     <rect x="14" y="14" width="7" height="7" rx="1.5"/>
                                 </svg>
+
+                            {:else if item.icon === 'orders'}
+                                <svg viewBox="0 0 24 24">
+                                    <rect x="4" y="3" width="16" height="18" rx="2"/>
+                                    <path d="M8 8h8M8 12h8M8 16h5"/>
+                                </svg>
+
+                            {:else if item.icon === 'products'}
+                                <svg viewBox="0 0 24 24">
+                                    <path d="m12 3 9 5-9 5-9-5 9-5Z"/>
+                                    <path d="m3 12 9 5 9-5"/>
+                                    <path d="m3 16 9 5 9-5"/>
+                                </svg>
+
+                            {:else if item.icon === 'customers'}
+                                <svg viewBox="0 0 24 24">
+                                    <circle cx="9" cy="8" r="3"/>
+                                    <path d="M3 20v-2a6 6 0 0 1 12 0v2"/>
+                                    <path d="M16 5.5a3 3 0 0 1 0 5.8"/>
+                                    <path d="M19 14a5 5 0 0 1 2 4v2"/>
+                                </svg>
+
                             {:else if item.icon === 'categories'}
                                 <svg viewBox="0 0 24 24">
                                     <rect x="3" y="3" width="8" height="8" rx="1.5"/>
@@ -84,6 +97,7 @@
                                     <rect x="3" y="13" width="8" height="8" rx="1.5"/>
                                     <rect x="13" y="13" width="8" height="8" rx="1.5"/>
                                 </svg>
+
                             {:else if item.icon === 'subcategories'}
                                 <svg viewBox="0 0 24 24">
                                     <path d="M4 5h6v6H4z"/>
@@ -92,170 +106,178 @@
                                     <path d="M12 14v5"/>
                                     <path d="M9 19h6"/>
                                 </svg>
-                            {:else if item.icon === 'products'}
-                                <svg viewBox="0 0 24 24">
-                                    <path d="m12 3 9 5-9 5-9-5 9-5Z"/>
-                                    <path d="m3 12 9 5 9-5"/>
-                                    <path d="m3 16 9 5 9-5"/>
-                                </svg>
-                            {:else if item.icon === 'orders'}
-                                <svg viewBox="0 0 24 24">
-                                    <path d="M5 3h14v18l-7-4-7 4V3Z"/>
-                                    <path d="M9 8h6M9 12h6"/>
-                                </svg>
-                            {:else if item.icon === 'customers'}
-                                <svg viewBox="0 0 24 24">
-                                    <circle cx="9" cy="8" r="3"/>
-                                    <path d="M3 20v-2a6 6 0 0 1 12 0v2"/>
-                                    <path d="M16 5.5a3 3 0 0 1 0 5.8"/>
-                                    <path d="M19 14a5 5 0 0 1 2 4v2"/>
-                                </svg>
+
                             {:else}
                                 <svg viewBox="0 0 24 24">
                                     <circle cx="12" cy="12" r="3"/>
                                     <path d="m19.4 15 .1.1 1.4 1.1-1.5 2.6-1.7-.6a8 8 0 0 1-1.5.9l-.3 1.8h-3l-.3-1.8a8 8 0 0 1-1.5-.9l-1.7.6-1.5-2.6 1.4-1.1a8 8 0 0 1 0-1.8l-1.4-1.1 1.5-2.6 1.7.6a8 8 0 0 1 1.5-.9l.3-1.8h3l.3 1.8a8 8 0 0 1 1.5.9l1.7-.6 1.5 2.6-1.4 1.1a8 8 0 0 1 0 1.7Z"/>
                                 </svg>
                             {/if}
+
                         </span>
 
-                        <span>{item.label}</span>
+                        <span class="menu-label">{item.label}</span>
                     </a>
                 {/each}
+
             </div>
         {/each}
     </nav>
 
+    <!-- Bottom Section -->
     <div class="sidebar-bottom">
-        <div class="help-card">
-            <div class="help-icon">?</div>
-            <p>Need help?</p>
-            <span>Contact our support team</span>
-            <a href="mailto:support@example.com">Get Support</a>
+
+        <div class="upgrade-card">
+            <div class="upgrade-icon">
+                <svg viewBox="0 0 24 24">
+                    <path d="M12 2 15 9l7 3-7 3-3 7-3-7-7-3 7-3 3-7Z"/>
+                </svg>
+            </div>
+
+            <strong>Derma Glow</strong>
+
+            <p>
+                Manage your store, products and orders all in one place.
+            </p>
+
+            <span class="upgrade-label">ADMINISTRATION</span>
         </div>
 
         <div class="sidebar-footer">
             <span class="status-dot"></span>
             <span>System operational</span>
         </div>
+
     </div>
+
 </aside>
 
 <style>
     .sidebar {
-        width: 250px;
-        min-width: 250px;
+        width: 225px;
+        min-width: 225px;
         height: 100vh;
+        position: sticky;
+        top: 0;
         background: #ffffff;
-        border-right: 1px solid #edf0f3;
+        border-right: 1px solid #edf0f4;
         display: flex;
         flex-direction: column;
-        padding: 26px 18px 16px;
-        box-sizing: border-box;
+        padding: 22px 13px 14px;
         overflow-y: auto;
+        color: #344054;
     }
+
+    /* Brand */
 
     .brand {
         display: flex;
         align-items: center;
-        gap: 11px;
-        padding: 0 8px 24px;
+        gap: 10px;
+        padding: 0 9px 23px;
     }
 
     .brand-logo {
-        width: 37px;
-        height: 37px;
-        border-radius: 11px;
-        background: #e7f5fc;
-        color: #269ed0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 20px;
-        font-weight: 700;
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        background: #3475ff;
+        color: white;
+        display: grid;
+        place-items: center;
+        font-size: 18px;
+        font-weight: 800;
     }
 
     .brand-info {
         display: flex;
         flex-direction: column;
-        gap: 4px;
+        gap: 3px;
     }
 
     .brand-name {
         font-size: 13px;
-        font-weight: 700;
-        letter-spacing: 1px;
-        color: #283b4b;
+        font-weight: 750;
+        color: #171c26;
+        letter-spacing: -.3px;
     }
 
     .brand-subtitle {
-        font-size: 9px;
-        letter-spacing: 1.2px;
-        color: #9ba8b3;
+        font-size: 8px;
+        letter-spacing: 1px;
+        color: #9aa3af;
+        font-weight: 600;
     }
 
     .sidebar-divider {
         height: 1px;
-        background: #f0f2f4;
-        margin-bottom: 22px;
+        background: #edf0f4;
+        margin: 0 -13px 17px;
     }
+
+    /* Navigation */
 
     nav {
         display: flex;
         flex-direction: column;
-        gap: 23px;
+        gap: 13px;
     }
 
     .menu-group {
         display: flex;
         flex-direction: column;
-        gap: 5px;
-    }
-
-    .group-title {
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 1px;
-        color: #a4adb6;
-        padding: 0 10px;
-        margin: 0 0 7px;
+        gap: 3px;
     }
 
     .menu-item {
-        height: 42px;
+        height: 39px;
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 11px;
         padding: 0 11px;
         border-radius: 8px;
         text-decoration: none;
-        color: #788794;
-        font-size: 13px;
+        color: #667085;
+        font-size: 11.5px;
         font-weight: 500;
-        transition: background 0.2s, color 0.2s;
+        position: relative;
+        transition: all .2s ease;
     }
 
     .menu-item:hover {
-        background: #f5f9fc;
-        color: #269ed0;
+        background: #f5f7fb;
+        color: #3475ff;
     }
 
     .menu-item.active {
-        background: #eaf6fc;
-        color: #269ed0;
+        background: #edf3ff;
+        color: #3475ff;
         font-weight: 600;
     }
 
+    .menu-item.active::before {
+        content: '';
+        position: absolute;
+        left: -7px;
+        top: 9px;
+        height: 21px;
+        width: 3px;
+        border-radius: 5px;
+        background: #3475ff;
+    }
+
     .menu-icon {
-        width: 19px;
-        height: 19px;
+        width: 17px;
+        height: 17px;
         display: flex;
         align-items: center;
         justify-content: center;
+        flex-shrink: 0;
     }
 
     .menu-icon svg {
-        width: 18px;
-        height: 18px;
+        width: 16px;
+        height: 16px;
         fill: none;
         stroke: currentColor;
         stroke-width: 1.7;
@@ -263,77 +285,94 @@
         stroke-linejoin: round;
     }
 
+    /* Bottom */
+
     .sidebar-bottom {
         margin-top: auto;
-        padding-top: 25px;
+        padding-top: 20px;
     }
 
-    .help-card {
-        background: #f3f9fc;
-        border-radius: 10px;
-        padding: 16px 12px;
-        text-align: center;
-        margin-bottom: 18px;
+    .upgrade-card {
+        padding: 12px 12px;
+        border-radius: 12px;
+        background: linear-gradient(145deg, #3979ff, #1746bd);
+        color: #ffffff;
+        margin-bottom: 15px;
     }
 
-    .help-icon {
+    .upgrade-icon {
         width: 27px;
         height: 27px;
-        background: #dceff9;
-        color: #269ed0;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 0 auto 9px;
-        font-weight: 700;
+        border-radius: 7px;
+        background: rgba(255,255,255,.2);
+        display: grid;
+        place-items: center;
+        margin-bottom: 11px;
     }
 
-    .help-card p {
+    .upgrade-icon svg {
+        width: 15px;
+        height: 15px;
+        fill: none;
+        stroke: white;
+        stroke-width: 1.7;
+        stroke-linejoin: round;
+    }
+
+    .upgrade-card strong {
+        display: block;
         font-size: 12px;
-        color: #344b5b;
-        font-weight: 600;
-        margin: 0 0 5px;
+        margin-bottom: 5px;
     }
 
-    .help-card span {
-        font-size: 10px;
-        color: #95a4af;
-        display: block;
-        margin-bottom: 12px;
+    .upgrade-card p {
+        font-size: 9px;
+        line-height: 1.6;
+        color: rgba(255,255,255,.8);
+        margin: 0 0 10px;
     }
 
-    .help-card a {
-        display: block;
-        background: #35a9df;
-        color: white;
-        padding: 8px;
-        border-radius: 6px;
-        text-decoration: none;
-        font-size: 11px;
-        font-weight: 600;
+    .upgrade-label {
+        font-size: 8px;
+        font-weight: 700;
+        letter-spacing: .8px;
+        color: rgba(255,255,255,.85);
     }
 
     .sidebar-footer {
         display: flex;
         align-items: center;
         gap: 8px;
-        padding: 8px;
-        font-size: 10px;
-        color: #9ba8b3;
+        padding: 13px 7px 5px;
+        font-size: 9px;
+        color: #98a2b3;
+        border-top: 1px solid #edf0f4;
     }
 
     .status-dot {
         width: 7px;
         height: 7px;
         border-radius: 50%;
-        background: #49bd87;
+        background: #45c58a;
+    }
+
+    .sidebar::-webkit-scrollbar {
+        width: 4px;
+    }
+
+    .sidebar::-webkit-scrollbar-thumb {
+        background: #e5e7eb;
+        border-radius: 10px;
     }
 
     @media (max-width: 760px) {
         .sidebar {
-            width: 210px;
-            min-width: 210px;
+            width: 190px;
+            min-width: 190px;
+        }
+
+        .upgrade-card {
+            padding: 10px;
         }
     }
 </style>
