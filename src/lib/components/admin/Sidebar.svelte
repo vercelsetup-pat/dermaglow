@@ -41,8 +41,7 @@
     <!-- Brand -->
     <div class="brand">
         <div class="brand-info">
-            <span class="brand-name">DERMA GLOW</span>
-            <span class="brand-subtitle">ADMIN PANEL</span>
+            <span class="brand-name">ADMIN PANEL</span>
         </div>
 
         <button
@@ -64,7 +63,6 @@
     <nav>
         {#each menuGroups as group}
             <div class="menu-group">
-
                 {#each group.items as item}
                     <a
                         href={item.href}
@@ -200,13 +198,6 @@
         letter-spacing: -.3px;
     }
 
-    .brand-subtitle {
-        font-size: 8px;
-        letter-spacing: 1px;
-        color: #9aa3af;
-        font-weight: 600;
-    }
-
     .sidebar-toggle {
         width: 25px;
         height: 25px;
@@ -223,7 +214,7 @@
 
     .sidebar-toggle:hover {
         background: #edf3ff;
-        color: #3475ff;
+        color: #29B24A;
     }
 
     .sidebar-toggle svg {
@@ -270,12 +261,12 @@
 
     .menu-item:hover {
         background: #f5f7fb;
-        color: #3475ff;
+        color: #29B24A;
     }
 
     .menu-item.active {
         background: #edf3ff;
-        color: #3475ff;
+        color: #29B24A;
         font-weight: 600;
     }
 
@@ -287,7 +278,7 @@
         height: 21px;
         width: 3px;
         border-radius: 5px;
-        background: #3475ff;
+        background: #29B24A;
     }
 
     .menu-icon {
