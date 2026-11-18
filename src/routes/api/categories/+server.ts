@@ -1,5 +1,5 @@
 import type { RequestHandler } from './$types';
-import { asc } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import { db } from '#lib/db/index.ts';
 import { categories } from '#lib/db/schema.ts';
 import type { ApiResponse } from '#lib/types.ts';
@@ -7,17 +7,22 @@ import type { ApiResponse } from '#lib/types.ts';
 
 export const GET: RequestHandler = async () => {
 	try {
-		const result = await db.select().from(categories).orderBy(asc(categories.createdAt));
-		const response: ApiResponse<typeof result> = { success: true, data: result };
-		return Response.json(response);
+		const result = await db
+			.select({
+				id: categories.id,
+				name: categories.name,
+				description: categories.description
+			})
+			.from(categories)
+			.where(eq(categories.isActive, true))
+			.orderBy(asc(categories.createdAt));
 
+		return Response.json({ success: true, data: result });
 	} catch (error) {
-		console.error('GET categories error:', error);
-		return Response.json({ success: false, message: 'Failed to retrieve categories.'},{ status: 500 });
-
+		console.error('GET store categories error:', error);
+		return Response.json({ success: false, message: 'Failed to retrieve categories.' }, { status: 500 });
 	}
 };
-
 export const POST: RequestHandler = async ({ request }) => {
   	try {
 		const body: unknown = await request.json();

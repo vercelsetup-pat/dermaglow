@@ -1,12 +1,27 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
+
+	type Id = number | string;
 
 	type Category = {
-		id: number | string;
+		id: Id;
 		name: string;
 		description: string | null;
 		isActive?: boolean;
 		createdAt?: string | null;
+	};
+	type Subcategory = {
+		id: Id;
+		categoryId: Id | null;
+		name: string;
+		description: string | null;
+	};
+	type Product = {
+		id: Id;
+		categoryId: Id | null;
+		subcategoryId: Id | null; // null = belongs directly to the category
+		name: string;
+		price?: number | string | null;
 	};
 
 	const API = '/api/categories';
@@ -28,12 +43,19 @@
 	let saving = $state(false);
 	let editError = $state('');
 
-	// delete
-	let confirmingId = $state<Category['id'] | null>(null);
-	let deletingId = $state<Category['id'] | null>(null);
+	// delete + toggle
+	let confirmingId = $state<Id | null>(null);
+	let deletingId = $state<Id | null>(null);
+	let togglingId = $state<Id | null>(null);
 
-	// toggle
-	let togglingId = $state<Category['id'] | null>(null);
+	// selection + details card
+	let selectedId = $state<Id | null>(null);
+	let selectedSubId = $state<Id | null>(null);
+	let subs = $state<Subcategory[]>([]);
+	let prods = $state<Product[]>([]);
+	let detailsLoading = $state(false);
+	let detailsError = $state('');
+	let panelEl = $state<HTMLElement | null>(null);
 
 	// toast
 	let toast = $state<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -48,6 +70,16 @@
 	});
 
 	const activeCount = $derived(categories.filter((c) => c.isActive !== false).length);
+
+	const selected = $derived(categories.find((c) => c.id === selectedId) ?? null);
+	const selectedSub = $derived(subs.find((s) => s.id === selectedSubId) ?? null);
+	// products attached directly to the category (no subcategory)
+	const directProducts = $derived(prods.filter((p) => p.subcategoryId == null));
+	// products of the currently opened subcategory
+	const subProducts = $derived(selectedSub ? prods.filter((p) => p.subcategoryId === selectedSub.id) : []);
+
+	const countSubProducts = (id: Id) => prods.filter((p) => p.subcategoryId === id).length;
+	const money = (v: number | string) => `$${Number(v).toLocaleString('en-US')}`;
 
 	function notify(type: 'success' | 'error', text: string) {
 		toast = { type, text };
@@ -84,6 +116,51 @@
 		}
 	});
 
+	// ---------- details card ----------
+	async function loadDetails(c: Category) {
+		detailsLoading = true;
+		detailsError = '';
+		subs = [];
+		prods = [];
+		try {
+			const [nextSubs, nextProds] = await Promise.all([
+				api<Subcategory[]>(`/api/subcategories?categoryId=${encodeURIComponent(String(c.id))}`),
+				api<Product[]>(`/api/products?categoryId=${encodeURIComponent(String(c.id))}`)
+			]);
+
+			// ignore the result if another category was selected meanwhile
+			if (selectedId !== c.id) return;
+			subs = nextSubs;
+			prods = nextProds;
+		} catch (err) {
+			if (selectedId !== c.id) return;
+			detailsError = err instanceof Error ? err.message : 'Could not load details.';
+		} finally {
+			if (selectedId === c.id) detailsLoading = false;
+		}
+	}
+
+	async function selectCategory(c: Category) {
+		if (selectedId === c.id) {
+			closePanel();
+			return;
+		}
+		selectedId = c.id;
+		selectedSubId = null;
+		loadDetails(c);
+		await tick();
+		panelEl?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+	}
+
+	function closePanel() {
+		selectedId = null;
+		selectedSubId = null;
+		subs = [];
+		prods = [];
+		detailsError = '';
+	}
+
+	// ---------- categories CRUD ----------
 	async function addCategory(e: SubmitEvent) {
 		e.preventDefault();
 		formError = '';
@@ -168,11 +245,12 @@
 		}
 	}
 
-	async function removeCategory(id: Category['id']) {
+	async function removeCategory(id: Id) {
 		deletingId = id;
 		try {
 			await api(`${API}/${id}`, { method: 'DELETE' });
 			categories = categories.filter((c) => c.id !== id);
+			if (selectedId === id) closePanel();
 			notify('success', 'Category deleted.');
 		} catch (err) {
 			notify('error', err instanceof Error ? err.message : 'Could not delete category.');
@@ -247,14 +325,14 @@
 			</form>
 		</section>
 
-		<!-- Categories cards -->
-				<!-- Categories cards -->
+		<!-- Categories -->
 		<section class="rounded-xl border border-gray-200 bg-white p-5">
 			<div class="flex flex-wrap items-center justify-between gap-3">
 				<div>
 					<h2 class="text-base font-semibold text-gray-900">All categories</h2>
 					<p class="mt-0.5 text-sm text-gray-500">
-						List of categories with detials for your proucts{categories.length}
+						{categories.length}
+						{categories.length === 1 ? 'category' : 'categories'} · {activeCount} active · click a card to see what's inside
 					</p>
 				</div>
 				<div class="relative w-full sm:w-64">
@@ -271,7 +349,7 @@
 				</div>
 			</div>
 
-			<div class="mt-5  pt-5">
+			<div class="mt-5 pt-5">
 				{#if loading}
 					<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
 						{#each [1, 2, 3, 4, 5, 6] as n (n)}
@@ -290,8 +368,21 @@
 					<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
 						{#each filtered as c (c.id)}
 							{@const active = c.isActive !== false}
+							<!-- svelte-ignore a11y_click_events_have_key_events -->
 							<article
-								class="flex flex-col rounded-xl border border-gray-200 p-5 transition hover:border-gray-300 hover:shadow-sm {active ? 'bg-white' : 'bg-gray-50'}"
+								role="button"
+								tabindex="0"
+								aria-pressed={selectedId === c.id}
+								onclick={() => selectCategory(c)}
+								onkeydown={(e) => {
+									if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+										e.preventDefault();
+										selectCategory(c);
+									}
+								}}
+								class="flex cursor-pointer flex-col rounded-xl border p-5 text-left transition hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500
+									{selectedId === c.id ? 'border-emerald-500 ring-1 ring-emerald-500' : 'border-gray-200 hover:border-gray-300'}
+									{active ? 'bg-white' : 'bg-gray-50'}"
 							>
 								<!-- top row: name + toggle -->
 								<div class="flex items-start justify-between gap-3">
@@ -305,12 +396,13 @@
 										aria-checked={active}
 										aria-label="{active ? 'Deactivate' : 'Activate'} {c.name}"
 										disabled={togglingId === c.id}
-										onclick={() => toggleActive(c)}
+										onclick={(e) => {
+											e.stopPropagation();
+											toggleActive(c);
+										}}
 										class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-60 {active ? 'bg-emerald-600' : 'bg-gray-300'}"
 									>
-										<span
-											class="inline-block size-5 rounded-full bg-white shadow transition-transform {active ? 'translate-x-5' : 'translate-x-0.5'}"
-										></span>
+										<span class="inline-block size-5 rounded-full bg-white shadow transition-transform {active ? 'translate-x-5' : 'translate-x-0.5'}"></span>
 									</button>
 								</div>
 
@@ -325,9 +417,7 @@
 
 								<!-- meta -->
 								<div class="mt-4 flex items-center gap-2 text-xs">
-									<span
-										class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-medium {active ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}"
-									>
+									<span class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-medium {active ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}">
 										<span class="size-1.5 rounded-full {active ? 'bg-emerald-500' : 'bg-gray-400'}"></span>
 										{active ? 'Active' : 'Inactive'}
 									</span>
@@ -342,14 +432,20 @@
 										<button
 											type="button"
 											disabled={deletingId === c.id}
-											onclick={() => removeCategory(c.id)}
+											onclick={(e) => {
+												e.stopPropagation();
+												removeCategory(c.id);
+											}}
 											class="rounded-md bg-red-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60"
 										>
 											{deletingId === c.id ? 'Deleting…' : 'Delete'}
 										</button>
 										<button
 											type="button"
-											onclick={() => (confirmingId = null)}
+											onclick={(e) => {
+												e.stopPropagation();
+												confirmingId = null;
+											}}
 											class="rounded-md px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100"
 										>
 											Cancel
@@ -357,7 +453,10 @@
 									{:else}
 										<button
 											type="button"
-											onclick={() => openEdit(c)}
+											onclick={(e) => {
+												e.stopPropagation();
+												openEdit(c);
+											}}
 											class="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
 										>
 											<svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -367,7 +466,10 @@
 										</button>
 										<button
 											type="button"
-											onclick={() => (confirmingId = c.id)}
+											onclick={(e) => {
+												e.stopPropagation();
+												confirmingId = c.id;
+											}}
 											class="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-red-50 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
 										>
 											<svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -384,6 +486,107 @@
 			</div>
 		</section>
 	</div>
+
+	<!-- Details card: subcategories AND direct products (separate full-width card) -->
+	{#if selected}
+		<section bind:this={panelEl} class="rounded-xl border border-gray-200 bg-white p-5">
+			<div class="flex items-start justify-between gap-3">
+				<div>
+					<h2 class="text-base font-semibold text-gray-900">{selected.name}</h2>
+					<p class="mt-0.5 text-sm text-gray-500">
+						{#if detailsLoading}
+							Loading…
+						{:else}
+							{subs.length} {subs.length === 1 ? 'subcategory' : 'subcategories'} · {directProducts.length}
+							{directProducts.length === 1 ? 'product' : 'products'} directly in this category
+						{/if}
+					</p>
+				</div>
+				<button
+					type="button"
+					onclick={closePanel}
+					aria-label="Close details"
+					class="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+				>
+					<svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+						<path d="M5.3 5.3a1 1 0 0 1 1.4 0L10 8.6l3.3-3.3a1 1 0 1 1 1.4 1.4L11.4 10l3.3 3.3a1 1 0 0 1-1.4 1.4L10 11.4l-3.3 3.3a1 1 0 0 1-1.4-1.4L8.6 10 5.3 6.7a1 1 0 0 1 0-1.4Z" />
+					</svg>
+				</button>
+			</div>
+
+			{#if detailsLoading}
+				<div class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+					{#each [1, 2, 3, 4] as n (n)}
+						<div class="h-20 animate-pulse rounded-lg bg-gray-100"></div>
+					{/each}
+				</div>
+			{:else if detailsError}
+				<p class="mt-5 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{detailsError}</p>
+			{:else}
+				<!-- Subcategories -->
+				{#if subs.length > 0}
+					<h3 class="mt-5 text-sm font-semibold text-gray-900">Subcategories</h3>
+					<div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+						{#each subs as s (s.id)}
+							<button
+								type="button"
+								onclick={() => (selectedSubId = selectedSubId === s.id ? null : s.id)}
+								aria-pressed={selectedSubId === s.id}
+								class="rounded-lg border bg-white p-4 text-left transition hover:border-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500
+									{selectedSubId === s.id ? 'border-emerald-500 ring-1 ring-emerald-500' : 'border-gray-200'}"
+							>
+								<p class="font-medium text-gray-900">{s.name}</p>
+								<p class="mt-0.5 line-clamp-1 text-sm text-gray-500">{s.description ?? 'No description'}</p>
+								<p class="mt-3 text-xs text-gray-500">{countSubProducts(s.id)} products</p>
+							</button>
+						{/each}
+					</div>
+
+					<!-- Products of the opened subcategory -->
+					{#if selectedSub}
+						<h3 class="mt-6 text-sm font-semibold text-gray-900">Products in {selectedSub.name}</h3>
+						{#if subProducts.length === 0}
+							<div class="mt-3 rounded-lg border border-dashed border-gray-300 px-4 py-6 text-center text-sm text-gray-500">
+								No products in this subcategory yet.
+							</div>
+						{:else}
+							<ul class="mt-3 divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-200">
+								{#each subProducts as p (p.id)}
+									<li class="flex items-center justify-between gap-3 px-4 py-3">
+										<span class="min-w-0 truncate text-sm font-medium text-gray-900">{p.name}</span>
+										{#if p.price != null}
+											<span class="shrink-0 text-sm text-gray-600">{money(p.price)}</span>
+										{/if}
+									</li>
+								{/each}
+							</ul>
+						{/if}
+					{/if}
+				{/if}
+
+				<!-- Direct products (no subcategory) -->
+				<h3 class="mt-6 text-sm font-semibold text-gray-900">
+					{subs.length > 0 ? 'Products without a subcategory' : 'Products'}
+				</h3>
+				{#if directProducts.length === 0}
+					<div class="mt-3 rounded-lg border border-dashed border-gray-300 px-4 py-6 text-center text-sm text-gray-500">
+						{subs.length > 0 ? 'No products directly in this category.' : 'No products yet.'}
+					</div>
+				{:else}
+					<ul class="mt-3 divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-200">
+						{#each directProducts as p (p.id)}
+							<li class="flex items-center justify-between gap-3 px-4 py-3">
+								<span class="min-w-0 truncate text-sm font-medium text-gray-900">{p.name}</span>
+								{#if p.price != null}
+									<span class="shrink-0 text-sm text-gray-600">{money(p.price)}</span>
+								{/if}
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			{/if}
+		</section>
+	{/if}
 </div>
 
 <!-- Edit modal -->

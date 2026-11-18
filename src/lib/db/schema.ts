@@ -1,5 +1,5 @@
 
-import { pgTable, uuid, varchar, text, numeric, timestamp, foreignKey, unique, index, check } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar,boolean, text, numeric, timestamp, foreignKey, unique, index, check } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { relations } from 'drizzle-orm';
 
@@ -8,6 +8,7 @@ export const categories = pgTable('categories', {
     id: uuid('id').defaultRandom().primaryKey(),
     name: varchar('name', { length: 255 }).notNull(),
     description: text('description'),
+    isActive: boolean('is_active').notNull().default(true),
     createdAt: timestamp('created_at').defaultNow().notNull()
 });
 
