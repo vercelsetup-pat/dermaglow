@@ -49,13 +49,21 @@ export const POST: RequestHandler = async ({ request }) => {
 		if (!name) {
 			return Response.json({ success: false, message: 'Product name is required.' }, { status: 400 });
 		}
-		if (!isUuid(payload.categoryId)) {
-			return Response.json({ success: false, message: 'A valid categoryId is required.' }, { status: 400 });
-		}
 
-		const subcategoryId = payload.subcategoryId ?? null;
-		if (subcategoryId !== null && !isUuid(subcategoryId)) {
+		const rawCategory = payload.categoryId ?? null;
+		const rawSub = payload.subcategoryId ?? null;
+
+		if (rawCategory !== null && !isUuid(rawCategory)) {
+			return Response.json({ success: false, message: 'Invalid categoryId.' }, { status: 400 });
+		}
+		if (rawSub !== null && !isUuid(rawSub)) {
 			return Response.json({ success: false, message: 'Invalid subcategoryId.' }, { status: 400 });
+		}
+		if (rawSub !== null && rawCategory === null) {
+			return Response.json(
+				{ success: false, message: 'Choose a category before choosing a subcategory.' },
+				{ status: 400 }
+			);
 		}
 
 		const price = parsePrice(payload.price);
@@ -69,8 +77,8 @@ export const POST: RequestHandler = async ({ request }) => {
 		const [created] = await db
 			.insert(products)
 			.values({
-				categoryId: payload.categoryId,
-				subcategoryId,
+				categoryId: rawCategory as string | null,
+				subcategoryId: rawSub as string | null,
 				name,
 				description: cleanText(payload.description),
 				price
@@ -82,9 +90,16 @@ export const POST: RequestHandler = async ({ request }) => {
 			{ status: 201 }
 		);
 	} catch (error) {
-		if (pgCode(error) === '23503') {
+		const code = pgCode(error);
+		if (code === '23503') {
 			return Response.json(
-				{ success: false, message: 'Category not found, or the subcategory does not belong to that category.' },
+				{ success: false, message: 'Category not found, or the subcategory does not belong to the selected category.' },
+				{ status: 400 }
+			);
+		}
+		if (code === '23514') {
+			return Response.json(
+				{ success: false, message: 'A product with a subcategory must also have a category.' },
 				{ status: 400 }
 			);
 		}

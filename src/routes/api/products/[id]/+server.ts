@@ -53,21 +53,36 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 			values.price = price;
 		}
 
-		if ('categoryId' in payload) {
-			if (!isUuid(payload.categoryId)) {
-				return Response.json({ success: false, message: 'Invalid categoryId.' }, { status: 400 });
-			}
-			values.categoryId = payload.categoryId;
-			// moving to another category clears the old subcategory unless a new one is sent
-			if (!('subcategoryId' in payload)) values.subcategoryId = null;
-		}
-
+		// subcategoryId: undefined = not sent, null = clear it, string = set it
+		let subcategoryId: string | null | undefined;
 		if ('subcategoryId' in payload) {
 			if (payload.subcategoryId !== null && !isUuid(payload.subcategoryId)) {
 				return Response.json({ success: false, message: 'Invalid subcategoryId.' }, { status: 400 });
 			}
-			values.subcategoryId = payload.subcategoryId;
+			subcategoryId = payload.subcategoryId as string | null;
 		}
+
+		if ('categoryId' in payload) {
+			if (payload.categoryId !== null && !isUuid(payload.categoryId)) {
+				return Response.json({ success: false, message: 'Invalid categoryId.' }, { status: 400 });
+			}
+			values.categoryId = payload.categoryId as string | null;
+
+			if (values.categoryId === null) {
+				if (subcategoryId) {
+					return Response.json(
+						{ success: false, message: 'A product without a category cannot have a subcategory.' },
+						{ status: 400 }
+					);
+				}
+				values.subcategoryId = null;
+			} else if (subcategoryId === undefined) {
+				// moved to another category: the old subcategory no longer applies
+				values.subcategoryId = null;
+			}
+		}
+
+		if (subcategoryId !== undefined) values.subcategoryId = subcategoryId;
 
 		if (Object.keys(values).length === 0) {
 			return Response.json({ success: false, message: 'Nothing to update.' }, { status: 400 });
@@ -80,9 +95,16 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 		}
 		return Response.json({ success: true, message: 'Product updated successfully.', data: updated });
 	} catch (error) {
-		if (pgCode(error) === '23503') {
+		const code = pgCode(error);
+		if (code === '23503') {
 			return Response.json(
-				{ success: false, message: 'Category not found, or the subcategory does not belong to that category.' },
+				{ success: false, message: 'Category not found, or the subcategory does not belong to the selected category.' },
+				{ status: 400 }
+			);
+		}
+		if (code === '23514') {
+			return Response.json(
+				{ success: false, message: 'A product with a subcategory must also have a category.' },
 				{ status: 400 }
 			);
 		}

@@ -29,20 +29,25 @@ export const subcategories = pgTable('subcategories', {
 // 3. Products
 export const products = pgTable('products', {
     id: uuid('id').defaultRandom().primaryKey(),
-    categoryId: uuid('category_id').notNull().references(() => categories.id),
+    categoryId: uuid('category_id').references(() => categories.id),
     subcategoryId: uuid('subcategory_id'),
     name: varchar('name', { length: 255 }).notNull(),
     description: text('description'),
-    price: numeric('price', { precision: 10, scale: 2}).notNull(),
+    price: numeric('price', { precision: 10, scale: 2 }).notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull()
   },
   (table) => [
     foreignKey({
       columns: [table.subcategoryId, table.categoryId],
-      foreignColumns: [ subcategories.id, subcategories.categoryId],
+      foreignColumns: [subcategories.id, subcategories.categoryId],
       name: 'fk_product_subcategory_category'
     }),
-    check('check_product_price',sql`${table.price} >= 0`),
+    check('check_product_price', sql`${table.price} >= 0`),
+    
+    check(
+      'check_product_subcategory_needs_category',
+      sql`${table.subcategoryId} IS NULL OR ${table.categoryId} IS NOT NULL`
+    ),
     index('idx_products_category_id').on(table.categoryId),
     index('idx_products_subcategory_id').on(table.subcategoryId)
   ]
