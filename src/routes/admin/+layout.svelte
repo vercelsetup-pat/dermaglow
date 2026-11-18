@@ -28,18 +28,7 @@
         <!-- Header -->
         <header class="topbar">
             <div class="search-box">
-                <svg viewBox="0 0 24 24">
-                    <circle cx="11" cy="11" r="7" />
-                    <path d="m16 16 4 4" />
-                </svg>
-
-                <input
-                    type="text"
-                    placeholder="Search anything..."
-                    bind:value={searchQuery}
-                />
-
-                <span class="search-shortcut">⌘ K</span>
+              
             </div>
 
             <div class="topbar-right">
@@ -236,21 +225,11 @@
 
     .page-content {
         flex: 1;
-        padding: 24px 28px;
+        padding: 20px 20px;
         overflow-y: auto;
         min-width: 0;
     }
 
-    .page-heading {
-        margin-bottom: 20px;
-    }
-
-    .page-heading h1 {
-        font-size: 21px;
-        font-weight: 700;
-        color: #202632;
-        margin: 0;
-    }
 
     @media (max-width: 760px) {
         .topbar {
