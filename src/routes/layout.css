@@ -3,6 +3,7 @@
 :root {
     --color-primary: #29B24A;
     --color-secondary: #0278BD;
+     --color-light-sec: #E6F1F8;
     --color-light: #ffffff;
     --color-alternative: #f3f4f6;
 }
@@ -70,4 +71,14 @@
 .btn-secondary:disabled {
 	opacity: 0.6;
 	cursor: not-allowed;
+}
+
+.txt-xs {
+    font-size: 0.75rem; /* text-xs */
+	color: #6b7280; /* text-gray-500 */
+}
+.txt-sm {
+    font-size: 0.875rem; /* text-sm */
+	font-weight: 600; /* font-semibold */
+	color: #111827; /* text-gray-900 */
 }

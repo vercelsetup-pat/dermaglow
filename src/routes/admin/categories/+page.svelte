@@ -692,7 +692,7 @@
 
 <!-- ================= PAGE ================= -->
 <div class="overflow-hidden rounded-xl border border-gray-200 bg-white lg:grid lg:grid-cols-[19rem_minmax(0,1fr)]">
-	<!-- ============ LEFT: category list ============ -->
+	<!-- ============ LEFT SIDE ============ -->
 	<aside class="border-b border-gray-200 bg-gray-50/70 p-4 lg:border-b-0 lg:border-r">
 		<div class="flex items-center justify-between gap-2 px-1">
 			<div>
@@ -708,13 +708,7 @@
 		</div>
 
 		<div class="relative mt-4">
-			<input
-				class="input-field pl-20"
-				type="search"
-				placeholder="Search categories"
-				aria-label="Search categories"
-				bind:value={search}
-			/>
+			<input class="input-field pl-20" type="search" placeholder="Search categories" aria-label="Search categories" bind:value={search}/>
 		</div>
 
 		<div class="mt-3 max-h-[28rem] space-y-1 overflow-y-auto lg:max-h-none">
@@ -734,7 +728,7 @@
 						onclick={() => selectCategory(c)}
 						aria-current={selectedId === c.id}
 						class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500
-							{selectedId === c.id ? 'bg-white shadow-sm ring-1 ring-gray-200' : 'hover:bg-gray-100'}"
+							{selectedId === c.id ? 'bg-[var(--color-light-sec)] shadow-sm ring-1 ring-gray-200' : 'hover:bg-gray-100'}"
 					>
 						<span class="size-2 shrink-0 rounded-full {active ? 'bg-emerald-500' : 'bg-gray-300'}" aria-hidden="true"></span>
 						<span class="min-w-0 flex-1">
@@ -757,7 +751,7 @@
 		</div>
 	</aside>
 
-	<!-- ============ RIGHT: selected category ============ -->
+	<!-- ============ RIGHT SIDE ============ -->
 	<section bind:this={panelEl} class="min-w-0 p-5 sm:p-6">
 		{#if loading}
 			<div class="space-y-4">
