@@ -1,39 +1,18 @@
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
-
+	import { onMount } from 'svelte';
+	import type { Category, Subcategory, Product } from '#lib/types.ts';
 	type Id = string;
-
-	type Category = {
-		id: Id;
-		name: string;
-		description: string | null;
-		isActive?: boolean;
-		createdAt?: string | null;
-	};
-	type Subcategory = {
-		id: Id;
-		categoryId: Id;
-		name: string;
-		description: string | null;
-	};
-	type Product = {
-		id: Id;
-		categoryId: Id | null;
-		subcategoryId: Id | null;
-		name: string;
-		description: string | null;
-		price: number | string;
-	};
-
+	
 	const API = '/api/categories';
 	const SUBS_API = '/api/subcategories';
 	const PRODUCTS_API = '/api/products';
+	const NONE = '__none';
 
 	let categories = $state<Category[]>([]);
 	let loading = $state(true);
 	let search = $state('');
 
-	// ---------- add category form ----------
+	let newCatOpen = $state(false);
 	let name = $state('');
 	let description = $state('');
 	let adding = $state(false);
@@ -51,25 +30,34 @@
 	let deletingId = $state<Id | null>(null);
 	let togglingId = $state<Id | null>(null);
 
-	// ---------- selection + details card ----------
+	// ---------- selection + details ----------
 	let selectedId = $state<Id | null>(null);
-	let selectedSubId = $state<Id | null>(null);
+	let filter = $state<'all' | typeof NONE | Id>('all');
 	let subs = $state<Subcategory[]>([]);
 	let prods = $state<Product[]>([]);
 	let detailsLoading = $state(false);
 	let detailsError = $state('');
 	let panelEl = $state<HTMLElement | null>(null);
 
-	// ---------- "Add to category" card (two dropdown sections) ----------
-	let openSection = $state<'sub' | 'product' | null>(null);
+	// ---------- "+ Add" modal (existing / create new) ----------
+	let addModal = $state<'sub' | 'product' | null>(null);
+	let addTab = $state<'existing' | 'new'>('existing');
 
-	// add subcategory
+	let allSubs = $state<Subcategory[]>([]);
+	let allProds = $state<Product[]>([]);
+	let poolLoading = $state(false);
+
+	let pickSearch = $state('');
+	let picked = $state<Id[]>([]);
+	let attaching = $state(false);
+	let attachError = $state('');
+
 	let subName = $state('');
 	let subDesc = $state('');
 	let addingSub = $state(false);
 	let subError = $state('');
 
-	// add product
+	// prodSubId is used by both the "create new" and the "existing" product tabs
 	let prodSubId = $state('');
 	let prodName = $state('');
 	let prodPrice = $state<number | string | null>('');
@@ -109,16 +97,39 @@
 		);
 	});
 
-	const activeCount = $derived(categories.filter((c) => c.isActive !== false).length);
-
 	const selected = $derived(categories.find((c) => c.id === selectedId) ?? null);
-	const selectedSub = $derived(subs.find((s) => s.id === selectedSubId) ?? null);
-	// products attached directly to the category (no subcategory)
+	const selectedActive = $derived(selected ? selected.isActive !== false : false);
+	const selectedSub = $derived(subs.find((s) => s.id === filter) ?? null);
 	const directProducts = $derived(prods.filter((p) => p.subcategoryId == null));
-	// products of the currently opened subcategory
-	const subProducts = $derived(selectedSub ? prods.filter((p) => p.subcategoryId === selectedSub.id) : []);
+	const visibleProducts = $derived(
+		filter === 'all'
+			? prods
+			: filter === NONE
+				? directProducts
+				: prods.filter((p) => p.subcategoryId === filter)
+	);
+
+	// pool of existing items for the "Existing" tab
+	const searchQ = $derived(pickSearch.trim().toLowerCase());
+	const visibleSubs = $derived(
+		allSubs.filter((s) => s.categoryId !== selectedId && s.name.toLowerCase().includes(searchQ))
+	);
+	const visiblePool = $derived(
+		allProds.filter((p) => p.categoryId !== selectedId && p.name.toLowerCase().includes(searchQ))
+	);
+	const availableCount = $derived(
+		addModal === 'sub'
+			? allSubs.filter((s) => s.categoryId !== selectedId).length
+			: allProds.filter((p) => p.categoryId !== selectedId).length
+	);
+	const movingProds = $derived(
+		allProds.filter((p) => picked.includes(p.id) && p.categoryId != null).length
+	);
 
 	const countSubProducts = (id: Id) => prods.filter((p) => p.subcategoryId === id).length;
+	const countPoolSubProducts = (id: Id) => allProds.filter((p) => p.subcategoryId === id).length;
+	const categoryName = (id: Id | null) => categories.find((c) => c.id === id)?.name ?? null;
+	const subName_ = (id: Id | null) => subs.find((s) => s.id === id)?.name ?? null;
 	const money = (v: number | string) =>
 		`$${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -140,14 +151,6 @@
 		return body.data as T;
 	}
 
-	function formatDate(value?: string | null) {
-		if (!value) return '—';
-		const d = new Date(value);
-		if (Number.isNaN(d.getTime())) return '—';
-		return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-	}
-
-	// works for both numbers and strings
 	function validPrice(value: number | string | null) {
 		const s = String(value ?? '').trim();
 		if (s === '') return false;
@@ -158,6 +161,7 @@
 	onMount(async () => {
 		try {
 			categories = await api<Category[]>(API);
+			if (categories.length > 0) selectCategory(categories[0], false);
 		} catch (e) {
 			notify('error', e instanceof Error ? e.message : 'Could not load categories.');
 		} finally {
@@ -166,7 +170,7 @@
 	});
 
 	// =====================================================
-	// details card
+	// details
 	// =====================================================
 	async function loadDetails(c: Category) {
 		detailsLoading = true;
@@ -178,11 +182,12 @@
 				api<Subcategory[]>(`${SUBS_API}?categoryId=${encodeURIComponent(c.id)}`),
 				api<Product[]>(`${PRODUCTS_API}?categoryId=${encodeURIComponent(c.id)}`)
 			]);
-
-			// ignore the result if another category was selected meanwhile
 			if (selectedId !== c.id) return;
 			subs = nextSubs;
 			prods = nextProds;
+			if (filter !== 'all' && filter !== NONE && !nextSubs.some((s) => s.id === filter)) {
+				filter = 'all';
+			}
 		} catch (err) {
 			if (selectedId !== c.id) return;
 			detailsError = err instanceof Error ? err.message : 'Could not load details.';
@@ -191,8 +196,25 @@
 		}
 	}
 
-	function resetManage() {
-		openSection = null;
+	async function loadPool() {
+		poolLoading = true;
+		try {
+			const [s, p] = await Promise.all([api<Subcategory[]>(SUBS_API), api<Product[]>(PRODUCTS_API)]);
+			allSubs = s;
+			allProds = p;
+		} catch (err) {
+			attachError = err instanceof Error ? err.message : 'Could not load existing items.';
+		} finally {
+			poolLoading = false;
+		}
+	}
+
+	function resetAddForms() {
+		addModal = null;
+		addTab = 'existing';
+		pickSearch = '';
+		picked = [];
+		attachError = '';
 		subName = '';
 		subDesc = '';
 		subError = '';
@@ -205,36 +227,104 @@
 		confirmingProdId = null;
 	}
 
-	async function selectCategory(c: Category) {
-		if (selectedId === c.id) {
-			closePanel();
-			return;
-		}
+	function selectCategory(c: Category, scroll = true) {
+		if (selectedId === c.id) return;
 		selectedId = c.id;
-		selectedSubId = null;
-		resetManage();
+		filter = 'all';
+		confirmingId = null;
+		resetAddForms();
 		loadDetails(c);
-		await tick();
-		panelEl?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+		if (scroll && typeof window !== 'undefined' && window.innerWidth < 1024) {
+			setTimeout(() => panelEl?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+		}
 	}
 
-	function closePanel() {
+	function clearSelection() {
 		selectedId = null;
-		selectedSubId = null;
+		filter = 'all';
 		subs = [];
 		prods = [];
 		detailsError = '';
-		resetManage();
+		resetAddForms();
 	}
 
-	// clicking a subcategory card shows its products and preselects it in the product form
-	function toggleSub(s: Subcategory) {
-		if (selectedSubId === s.id) {
-			selectedSubId = null;
-			prodSubId = '';
+	// =====================================================
+	// "+ Add" modal
+	// =====================================================
+	function openAdd(kind: 'sub' | 'product') {
+		addModal = kind;
+		addTab = 'existing';
+		pickSearch = '';
+		picked = [];
+		attachError = '';
+		subError = '';
+		prodError = '';
+		if (kind === 'product') prodSubId = selectedSub ? selectedSub.id : '';
+		loadPool();
+	}
+
+	function closeAdd() {
+		if (attaching || addingSub || addingProd) return;
+		addModal = null;
+	}
+
+	function togglePick(id: Id) {
+		picked = picked.includes(id) ? picked.filter((x) => x !== id) : [...picked, id];
+		attachError = '';
+	}
+
+	async function attachSelected() {
+		const cat = selected;
+		const kind = addModal;
+		if (!cat || !kind) return;
+		if (picked.length === 0) {
+			attachError = kind === 'sub' ? 'Select at least one subcategory.' : 'Select at least one product.';
+			return;
+		}
+
+		attaching = true;
+		attachError = '';
+		const total = picked.length;
+		const failed: Id[] = [];
+		let lastMessage = '';
+
+		for (const id of picked) {
+			try {
+				if (kind === 'sub') {
+					await api(`${SUBS_API}/${id}/move`, {
+						method: 'POST',
+						body: JSON.stringify({ categoryId: cat.id })
+					});
+				} else {
+					await api(`${PRODUCTS_API}/${id}/assign`, {
+						method: 'POST',
+						body: JSON.stringify({ categoryId: cat.id, subcategoryId: prodSubId || null })
+					});
+				}
+			} catch (err) {
+				failed.push(id);
+				lastMessage = err instanceof Error ? err.message : 'Could not add item.';
+			}
+		}
+
+		const okCount = total - failed.length;
+		picked = failed;
+		await Promise.all([loadDetails(cat), loadPool()]);
+		attaching = false;
+
+		if (okCount > 0) {
+			const label =
+				kind === 'sub'
+					? 'subcategor' + (okCount === 1 ? 'y' : 'ies')
+					: okCount === 1
+						? 'product'
+						: 'products';
+			notify('success', `${okCount} ${label} added.`);
+		}
+		if (failed.length > 0) {
+			attachError = `${failed.length} could not be added. ${lastMessage}`;
 		} else {
-			selectedSubId = s.id;
-			prodSubId = s.id;
+			addModal = null;
 		}
 	}
 
@@ -259,6 +349,7 @@
 			if (selectedId === cat.id) subs = [created, ...subs];
 			subName = '';
 			subDesc = '';
+			addModal = null;
 			notify('success', 'Subcategory added.');
 		} catch (err) {
 			subError = err instanceof Error ? err.message : 'Could not add subcategory.';
@@ -308,11 +399,10 @@
 		try {
 			await api(`${SUBS_API}/${id}`, { method: 'DELETE' });
 			subs = subs.filter((s) => s.id !== id);
-			if (selectedSubId === id) selectedSubId = null;
+			if (filter === id) filter = 'all';
 			if (prodSubId === id) prodSubId = '';
 			notify('success', 'Subcategory deleted.');
 		} catch (err) {
-			// e.g. "This subcategory still has products. Move or delete them first."
 			notify('error', err instanceof Error ? err.message : 'Could not delete subcategory.');
 		} finally {
 			deletingSubId = null;
@@ -349,10 +439,10 @@
 				})
 			});
 			if (selectedId === cat.id) prods = [created, ...prods];
-			// keep the subcategory selected so several products can be added in a row
 			prodName = '';
 			prodPrice = '';
 			prodDesc = '';
+			addModal = null;
 			notify('success', 'Product added.');
 		} catch (err) {
 			prodError = err instanceof Error ? err.message : 'Could not add product.';
@@ -425,6 +515,18 @@
 	// =====================================================
 	// categories CRUD
 	// =====================================================
+	function openNewCategory() {
+		name = '';
+		description = '';
+		formError = '';
+		newCatOpen = true;
+	}
+
+	function closeNewCategory() {
+		if (adding) return;
+		newCatOpen = false;
+	}
+
 	async function addCategory(e: SubmitEvent) {
 		e.preventDefault();
 		formError = '';
@@ -438,10 +540,12 @@
 				method: 'POST',
 				body: JSON.stringify({ name, description })
 			});
-			categories = [created, ...categories]; // newest first
+			categories = [created, ...categories];
 			name = '';
 			description = '';
+			newCatOpen = false;
 			notify('success', 'Category added.');
+			selectCategory(created);
 		} catch (err) {
 			formError = err instanceof Error ? err.message : 'Could not add category.';
 		} finally {
@@ -491,7 +595,6 @@
 		const next = !previous;
 		togglingId = c.id;
 
-		// optimistic update
 		categories = categories.map((x) => (x.id === c.id ? { ...x, isActive: next } : x));
 
 		try {
@@ -499,9 +602,8 @@
 				method: 'PATCH',
 				body: JSON.stringify({ isActive: next })
 			});
-			notify('success', next ? 'Category activated.' : 'Category deactivated.');
+			notify('success', next ? 'Category is now visible in the store.' : 'Category hidden from the store.');
 		} catch (err) {
-			// rollback
 			categories = categories.map((x) => (x.id === c.id ? { ...x, isActive: previous } : x));
 			notify('error', err instanceof Error ? err.message : 'Could not update status.');
 		} finally {
@@ -513,8 +615,12 @@
 		deletingId = id;
 		try {
 			await api(`${API}/${id}`, { method: 'DELETE' });
-			categories = categories.filter((c) => c.id !== id);
-			if (selectedId === id) closePanel();
+			const rest = categories.filter((c) => c.id !== id);
+			categories = rest;
+			if (selectedId === id) {
+				clearSelection();
+				if (rest.length > 0) selectCategory(rest[0], false);
+			}
 			notify('success', 'Category deleted.');
 		} catch (err) {
 			notify('error', err instanceof Error ? err.message : 'Could not delete category.');
@@ -525,12 +631,22 @@
 	}
 
 	const inputClass =
-		'w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 disabled:bg-gray-50 disabled:text-gray-400';
+		'w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-emerald-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/20 disabled:bg-gray-50 disabled:text-gray-400';
+	const primaryBtn =
+		'inline-flex items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-60';
+	const ghostBtn =
+		'rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100';
+	const outlineBtn =
+		'inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500';
+	const iconBtn =
+		'rounded-md p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500';
 </script>
 
 <svelte:window
 	onkeydown={(e) => {
 		if (e.key === 'Escape') {
+			closeAdd();
+			closeNewCategory();
 			closeEdit();
 			closeEditSub();
 			closeEditProd();
@@ -538,30 +654,75 @@
 	}}
 />
 
-<!-- Product rows (used for both the subcategory's products and the direct products) -->
+<!-- Icons -->
+{#snippet iconPlus()}
+	<svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+		<path d="M10 4a1 1 0 0 1 1 1v4h4a1 1 0 1 1 0 2h-4v4a1 1 0 1 1-2 0v-4H5a1 1 0 1 1 0-2h4V5a1 1 0 0 1 1-1Z" />
+	</svg>
+{/snippet}
+{#snippet iconEdit()}
+	<svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+		<path d="M13.6 2.6a2 2 0 0 1 2.8 2.8l-.9.9-2.8-2.8.9-.9ZM11.3 4.9 3 13.2V16h2.8l8.3-8.3-2.8-2.8Z" />
+	</svg>
+{/snippet}
+{#snippet iconTrash()}
+	<svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+		<path fill-rule="evenodd" d="M8 2a1 1 0 0 0-1 1v1H4a1 1 0 0 0 0 2h.1l.8 9.1A2 2 0 0 0 6.9 17h6.2a2 2 0 0 0 2-1.9l.8-9.1H16a1 1 0 1 0 0-2h-3V3a1 1 0 0 0-1-1H8Zm1 2V4h2v0H9Z" clip-rule="evenodd" />
+	</svg>
+{/snippet}
+{#snippet iconClose()}
+	<svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+		<path d="M5.3 5.3a1 1 0 0 1 1.4 0L10 8.6l3.3-3.3a1 1 0 1 1 1.4 1.4L11.4 10l3.3 3.3a1 1 0 0 1-1.4 1.4L10 11.4l-3.3 3.3a1 1 0 0 1-1.4-1.4L8.6 10 5.3 6.7a1 1 0 0 1 0-1.4Z" />
+	</svg>
+{/snippet}
+{#snippet iconSearch()}
+	<svg class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+		<path fill-rule="evenodd" d="M9 3a6 6 0 1 0 3.6 10.8l3.3 3.3a1 1 0 0 0 1.4-1.4l-3.3-3.3A6 6 0 0 0 9 3Zm-4 6a4 4 0 1 1 8 0 4 4 0 0 1-8 0Z" clip-rule="evenodd" />
+	</svg>
+{/snippet}
+{#snippet spinner()}
+	<span class="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white"></span>
+{/snippet}
+
+<!-- Product rows -->
 {#snippet productList(items: Product[])}
-	<ul class="mt-3 divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-200 bg-white">
+	<ul class="divide-y divide-gray-100">
 		{#each items as p (p.id)}
-			<li class="flex items-center justify-between gap-3 px-4 py-3">
-				<div class="min-w-0">
-					<p class="truncate text-sm font-medium text-gray-900" title={p.name}>{p.name}</p>
-					{#if p.description}
-						<p class="truncate text-xs text-gray-500" title={p.description}>{p.description}</p>
+			<li class="group flex items-center gap-3 py-3">
+				<div class="grid size-11 shrink-0 place-items-center overflow-hidden rounded-lg bg-gray-100 text-gray-400">
+					{#if p.imageUrl}
+						<img src={p.imageUrl} alt="" class="size-full object-cover" />
+					{:else}
+						<svg class="size-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+							<path fill-rule="evenodd" d="M4 3a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H4Zm0 2h12v6.6l-2.3-2.3a1 1 0 0 0-1.4 0L9 12.6 7.7 11.3a1 1 0 0 0-1.4 0L4 13.6V5Zm9 1.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z" clip-rule="evenodd" />
+						</svg>
 					{/if}
 				</div>
 
-				<div class="flex shrink-0 items-center gap-1">
-					<span class="mr-2 text-sm text-gray-600">{money(p.price)}</span>
+				<div class="min-w-0 flex-1">
+					<p class="truncate text-sm font-medium text-gray-900" title={p.name}>{p.name}</p>
+					<p class="truncate text-xs text-gray-500" title={p.description ?? ''}>
+						{p.description || 'No description'}
+					</p>
+				</div>
 
+				{#if filter === 'all' && p.subcategoryId && subName_(p.subcategoryId)}
+					<span class="hidden shrink-0 rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 sm:inline">
+						{subName_(p.subcategoryId)}
+					</span>
+				{/if}
+
+				<span class="w-20 shrink-0 text-right text-sm font-semibold text-gray-900">{money(p.price)}</span>
+
+				<div class="flex w-24 shrink-0 items-center justify-end gap-0.5">
 					{#if confirmingProdId === p.id}
-						<span class="text-xs text-gray-500">Delete?</span>
 						<button
 							type="button"
 							disabled={deletingProdId === p.id}
 							onclick={() => removeProd(p.id)}
 							class="rounded-md bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60"
 						>
-							{deletingProdId === p.id ? '…' : 'Yes'}
+							{deletingProdId === p.id ? '…' : 'Delete'}
 						</button>
 						<button
 							type="button"
@@ -571,25 +732,16 @@
 							No
 						</button>
 					{:else}
-						<button
-							type="button"
-							onclick={() => openEditProd(p)}
-							aria-label="Edit {p.name}"
-							class="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-						>
-							<svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-								<path d="M13.6 2.6a2 2 0 0 1 2.8 2.8l-.9.9-2.8-2.8.9-.9ZM11.3 4.9 3 13.2V16h2.8l8.3-8.3-2.8-2.8Z" />
-							</svg>
+						<button type="button" onclick={() => openEditProd(p)} aria-label="Edit {p.name}" class={iconBtn}>
+							{@render iconEdit()}
 						</button>
 						<button
 							type="button"
 							onclick={() => (confirmingProdId = p.id)}
 							aria-label="Delete {p.name}"
-							class="rounded-md p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+							class="{iconBtn} hover:bg-red-50 hover:text-red-600"
 						>
-							<svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-								<path fill-rule="evenodd" d="M8 2a1 1 0 0 0-1 1v1H4a1 1 0 0 0 0 2h.1l.8 9.1A2 2 0 0 0 6.9 17h6.2a2 2 0 0 0 2-1.9l.8-9.1H16a1 1 0 1 0 0-2h-3V3a1 1 0 0 0-1-1H8Zm1 2V4h2v0H9Z" clip-rule="evenodd" />
-							</svg>
+							{@render iconTrash()}
 						</button>
 					{/if}
 				</div>
@@ -598,550 +750,652 @@
 	</ul>
 {/snippet}
 
-<div class="space-y-6">
-	<div class="grid items-start gap-6 lg:grid-cols-[22rem_1fr]">
-		<!-- ================= LEFT COLUMN ================= -->
-		<div class="min-w-0 space-y-6">
-			<!-- New category -->
-			<section class="rounded-xl border border-gray-200 bg-white p-5">
-				<h2 class="text-base font-semibold text-gray-900">New category</h2>
-				<p class="mt-0.5 text-sm text-gray-500">Products can be grouped under it later.</p>
+<!-- ================= PAGE ================= -->
+<div class="overflow-hidden rounded-xl border border-gray-200 bg-white lg:grid lg:grid-cols-[19rem_minmax(0,1fr)]">
+	<!-- ============ LEFT: category list ============ -->
+	<aside class="border-b border-gray-200 bg-gray-50/70 p-4 lg:border-b-0 lg:border-r">
+		<div class="flex items-center justify-between gap-2 px-1">
+			<div>
+				<h2 class="text-sm font-semibold text-gray-900">Categories</h2>
+				<p class="text-xs text-gray-500">
+					{categories.length} total · {categories.filter((c) => c.isActive !== false).length} visible
+				</p>
+			</div>
+			<button type="button" onclick={openNewCategory} class={outlineBtn}>
+				{@render iconPlus()}
+				New
+			</button>
+		</div>
 
-				<form class="mt-5 space-y-4" onsubmit={addCategory}>
+		<div class="relative mt-4">
+			{@render iconSearch()}
+			<input
+				class="{inputClass} pl-9"
+				type="search"
+				placeholder="Search categories"
+				aria-label="Search categories"
+				bind:value={search}
+			/>
+		</div>
+
+		<div class="mt-3 max-h-[28rem] space-y-1 overflow-y-auto lg:max-h-none">
+			{#if loading}
+				{#each [1, 2, 3, 4] as n (n)}
+					<div class="h-14 animate-pulse rounded-lg bg-gray-100"></div>
+				{/each}
+			{:else if filtered.length === 0}
+				<p class="rounded-lg border border-dashed border-gray-300 px-3 py-8 text-center text-sm text-gray-500">
+					{categories.length === 0 ? 'No categories yet. Create your first one.' : `No categories match “${search}”.`}
+				</p>
+			{:else}
+				{#each filtered as c (c.id)}
+					{@const active = c.isActive !== false}
+					<button
+						type="button"
+						onclick={() => selectCategory(c)}
+						aria-current={selectedId === c.id}
+						class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500
+							{selectedId === c.id ? 'bg-white shadow-sm ring-1 ring-gray-200' : 'hover:bg-gray-100'}"
+					>
+						<span class="size-2 shrink-0 rounded-full {active ? 'bg-emerald-500' : 'bg-gray-300'}" aria-hidden="true"></span>
+						<span class="min-w-0 flex-1">
+							<span class="block truncate text-sm {selectedId === c.id ? 'font-semibold' : 'font-medium'} {active ? 'text-gray-900' : 'text-gray-500'}">
+								{c.name}
+							</span>
+							<span class="block truncate text-xs text-gray-500">
+								{#if c.subCount != null && c.productCount != null}
+									{c.subCount} sub · {c.productCount} products
+								{:else if !active}
+									Hidden from store
+								{:else}
+									{c.description || 'No description'}
+								{/if}
+							</span>
+						</span>
+					</button>
+				{/each}
+			{/if}
+		</div>
+	</aside>
+
+	<!-- ============ RIGHT: selected category ============ -->
+	<section bind:this={panelEl} class="min-w-0 p-5 sm:p-6">
+		{#if loading}
+			<div class="space-y-4">
+				<div class="h-6 w-48 animate-pulse rounded bg-gray-100"></div>
+				<div class="grid gap-3 sm:grid-cols-3">
+					{#each [1, 2, 3] as n (n)}
+						<div class="h-16 animate-pulse rounded-lg bg-gray-100"></div>
+					{/each}
+				</div>
+				<div class="h-48 animate-pulse rounded-lg bg-gray-100"></div>
+			</div>
+		{:else if !selected}
+			<div class="grid min-h-72 place-items-center text-center">
+				<div>
+					<p class="text-base font-semibold text-gray-900">Select a category</p>
+					<p class="mt-1 text-sm text-gray-500">Pick one from the list to manage its subcategories and products.</p>
+				</div>
+			</div>
+		{:else}
+			<!-- header -->
+			<div class="flex flex-wrap items-start justify-between gap-4">
+				<div class="min-w-0">
+					<p class="text-xs text-gray-400">Categories / <span class="text-gray-500">{selected.name}</span></p>
+					<div class="mt-1 flex flex-wrap items-center gap-2.5">
+						<h2 class="truncate text-xl font-semibold text-gray-900">{selected.name}</h2>
+						<span class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium {selectedActive ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}">
+							<span class="size-1.5 rounded-full {selectedActive ? 'bg-emerald-500' : 'bg-gray-400'}"></span>
+							{selectedActive ? 'Active' : 'Hidden'}
+						</span>
+					</div>
+					<p class="mt-1 max-w-xl text-sm text-gray-500">{selected.description || 'No description yet.'}</p>
+				</div>
+
+				<div class="flex items-center gap-1.5">
+					<button
+						type="button"
+						role="switch"
+						aria-checked={selectedActive}
+						aria-label="{selectedActive ? 'Hide' : 'Show'} {selected.name} in the store"
+						title={selectedActive ? 'Visible in store' : 'Hidden from store'}
+						disabled={togglingId === selected.id}
+						onclick={() => toggleActive(selected)}
+						class="relative mr-2 inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-60 {selectedActive ? 'bg-emerald-600' : 'bg-gray-300'}"
+					>
+						<span class="inline-block size-5 rounded-full bg-white shadow transition-transform {selectedActive ? 'translate-x-5' : 'translate-x-0.5'}"></span>
+					</button>
+
+					{#if confirmingId === selected.id}
+						<span class="text-xs text-gray-500">Delete this category?</span>
+						<button
+							type="button"
+							disabled={deletingId === selected.id}
+							onclick={() => removeCategory(selected.id)}
+							class="rounded-md bg-red-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60"
+						>
+							{deletingId === selected.id ? 'Deleting…' : 'Delete'}
+						</button>
+						<button
+							type="button"
+							onclick={() => (confirmingId = null)}
+							class="rounded-md px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100"
+						>
+							Cancel
+						</button>
+					{:else}
+						<button type="button" onclick={() => openEdit(selected)} aria-label="Edit category" title="Edit category" class={iconBtn}>
+							{@render iconEdit()}
+						</button>
+						<button
+							type="button"
+							onclick={() => (confirmingId = selected.id)}
+							aria-label="Delete category"
+							title="Delete category"
+							class="{iconBtn} hover:bg-red-50 hover:text-red-600"
+						>
+							{@render iconTrash()}
+						</button>
+					{/if}
+				</div>
+			</div>
+
+			{#if detailsLoading}
+				<div class="mt-6 grid gap-3 sm:grid-cols-3">
+					{#each [1, 2, 3] as n (n)}
+						<div class="h-16 animate-pulse rounded-lg bg-gray-100"></div>
+					{/each}
+				</div>
+				<div class="mt-6 space-y-2">
+					{#each [1, 2, 3] as n (n)}
+						<div class="h-14 animate-pulse rounded-lg bg-gray-100"></div>
+					{/each}
+				</div>
+			{:else if detailsError}
+				<p class="mt-6 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{detailsError}</p>
+			{:else}
+				<!-- stat tiles -->
+				<div class="mt-6 grid gap-3 sm:grid-cols-3">
+					<div class="rounded-lg bg-gray-50 px-4 py-3">
+						<p class="text-xs text-gray-500">Subcategories</p>
+						<p class="mt-0.5 text-xl font-semibold text-gray-900">{subs.length}</p>
+					</div>
+					<div class="rounded-lg bg-gray-50 px-4 py-3">
+						<p class="text-xs text-gray-500">Products</p>
+						<p class="mt-0.5 text-xl font-semibold text-gray-900">{prods.length}</p>
+					</div>
+					<div class="rounded-lg bg-gray-50 px-4 py-3">
+						<p class="text-xs text-gray-500">Visible in store</p>
+						<p class="mt-0.5 text-xl font-semibold {selectedActive ? 'text-emerald-700' : 'text-gray-500'}">
+							{selectedActive ? 'Yes' : 'No'}
+						</p>
+					</div>
+				</div>
+
+				<!-- toolbar: filter chips + add buttons -->
+				<div class="mt-7 flex flex-wrap items-center justify-between gap-3">
+					<div class="flex flex-wrap gap-1.5" role="tablist" aria-label="Filter products by subcategory">
+						<button
+							type="button"
+							aria-pressed={filter === 'all'}
+							onclick={() => (filter = 'all')}
+							class="rounded-full border px-3 py-1 text-sm transition {filter === 'all' ? 'border-gray-900 bg-gray-900 text-white' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}"
+						>
+							All <span class="{filter === 'all' ? 'text-white/70' : 'text-gray-400'}">{prods.length}</span>
+						</button>
+						{#each subs as s (s.id)}
+							<button
+								type="button"
+								aria-pressed={filter === s.id}
+								onclick={() => (filter = filter === s.id ? 'all' : s.id)}
+								class="rounded-full border px-3 py-1 text-sm transition {filter === s.id ? 'border-gray-900 bg-gray-900 text-white' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}"
+							>
+								{s.name}
+								<span class="{filter === s.id ? 'text-white/70' : 'text-gray-400'}">{countSubProducts(s.id)}</span>
+							</button>
+						{/each}
+						{#if subs.length > 0 && directProducts.length > 0}
+							<button
+								type="button"
+								aria-pressed={filter === NONE}
+								onclick={() => (filter = filter === NONE ? 'all' : NONE)}
+								class="rounded-full border border-dashed px-3 py-1 text-sm transition {filter === NONE ? 'border-gray-900 bg-gray-900 text-white' : 'border-gray-300 text-gray-500 hover:bg-gray-50'}"
+							>
+								No subcategory <span class="{filter === NONE ? 'text-white/70' : 'text-gray-400'}">{directProducts.length}</span>
+							</button>
+						{/if}
+					</div>
+
+					<div class="flex items-center gap-2">
+						<button type="button" onclick={() => openAdd('sub')} class={outlineBtn}>
+							{@render iconPlus()}
+							Subcategory
+						</button>
+						<button type="button" onclick={() => openAdd('product')} class={primaryBtn}>
+							{@render iconPlus()}
+							Product
+						</button>
+					</div>
+				</div>
+
+				<!-- selected subcategory info -->
+				{#if selectedSub}
+					<div class="mt-4 flex items-center justify-between gap-3 rounded-lg bg-gray-50 px-4 py-3">
+						<div class="min-w-0">
+							<p class="truncate text-sm font-medium text-gray-900">{selectedSub.name}</p>
+							<p class="truncate text-xs text-gray-500">{selectedSub.description || 'No description'}</p>
+						</div>
+						<div class="flex shrink-0 items-center gap-1">
+							{#if confirmingSubId === selectedSub.id}
+								<span class="text-xs text-gray-500">Delete subcategory?</span>
+								<button
+									type="button"
+									disabled={deletingSubId === selectedSub.id}
+									onclick={() => removeSub(selectedSub.id)}
+									class="rounded-md bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60"
+								>
+									{deletingSubId === selectedSub.id ? '…' : 'Delete'}
+								</button>
+								<button
+									type="button"
+									onclick={() => (confirmingSubId = null)}
+									class="rounded-md px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100"
+								>
+									No
+								</button>
+							{:else}
+								<button type="button" onclick={() => openEditSub(selectedSub)} aria-label="Edit subcategory" class={iconBtn}>
+									{@render iconEdit()}
+								</button>
+								<button
+									type="button"
+									onclick={() => (confirmingSubId = selectedSub.id)}
+									aria-label="Delete subcategory"
+									class="{iconBtn} hover:bg-red-50 hover:text-red-600"
+								>
+									{@render iconTrash()}
+								</button>
+							{/if}
+						</div>
+					</div>
+				{/if}
+
+				<!-- products -->
+				<div class="mt-4">
+					{#if visibleProducts.length === 0}
+						<div class="rounded-lg border border-dashed border-gray-300 px-4 py-12 text-center">
+							<p class="text-sm font-medium text-gray-900">
+								{prods.length === 0 ? 'No products yet' : 'No products in this view'}
+							</p>
+							<p class="mt-1 text-sm text-gray-500">
+								Add an existing product or create a new one for {selected.name}.
+							</p>
+							<button type="button" onclick={() => openAdd('product')} class="{primaryBtn} mt-4">
+								{@render iconPlus()}
+								Add product
+							</button>
+						</div>
+					{:else}
+						{@render productList(visibleProducts)}
+					{/if}
+				</div>
+			{/if}
+		{/if}
+	</section>
+</div>
+
+<!-- ================= New category modal ================= -->
+{#if newCatOpen}
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<div
+		class="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-gray-900/40 p-4"
+		role="presentation"
+		onclick={(e) => e.target === e.currentTarget && closeNewCategory()}
+	>
+		<div class="w-full max-w-md rounded-xl bg-white p-6 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="new-cat-title">
+			<h2 id="new-cat-title" class="text-base font-semibold text-gray-900">New category</h2>
+			<p class="mt-0.5 text-sm text-gray-500">Subcategories and products can be added to it afterwards.</p>
+
+			<form class="mt-5 space-y-4" onsubmit={addCategory}>
+				<div>
+					<label for="cat-name" class="mb-1.5 block text-sm font-medium text-gray-700">
+						Name <span class="text-red-500">*</span>
+					</label>
+					<input
+						id="cat-name"
+						class={inputClass}
+						type="text"
+						maxlength="80"
+						placeholder="e.g. Injectables"
+						bind:value={name}
+					/>
+				</div>
+
+				<div>
+					<div class="mb-1.5 flex items-center justify-between">
+						<label for="cat-desc" class="text-sm font-medium text-gray-700">Description</label>
+						<span class="text-xs text-gray-400">{description.length}/200</span>
+					</div>
+					<textarea
+						id="cat-desc"
+						class="{inputClass} resize-none"
+						rows="3"
+						maxlength="200"
+						placeholder="Optional. What kind of products belong here?"
+						bind:value={description}
+					></textarea>
+				</div>
+
+				{#if formError}
+					<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{formError}</p>
+				{/if}
+
+				<div class="flex justify-end gap-2 pt-1">
+					<button type="button" onclick={closeNewCategory} class={ghostBtn}>Cancel</button>
+					<button type="submit" disabled={adding} class={primaryBtn}>
+						{#if adding}
+							{@render spinner()}
+							Adding…
+						{:else}
+							Create category
+						{/if}
+					</button>
+				</div>
+			</form>
+		</div>
+	</div>
+{/if}
+
+<!-- ================= Add modal (existing / create new) ================= -->
+{#if addModal && selected}
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<div
+		class="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-gray-900/40 p-4"
+		role="presentation"
+		onclick={(e) => e.target === e.currentTarget && closeAdd()}
+	>
+		<div class="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="add-title">
+			<div class="flex items-start justify-between gap-3">
+				<h2 id="add-title" class="min-w-0 truncate text-base font-semibold text-gray-900">
+					{addModal === 'sub' ? 'Add subcategories' : 'Add products'} to {selected.name}
+				</h2>
+				<button type="button" onclick={closeAdd} aria-label="Close" class={iconBtn}>
+					{@render iconClose()}
+				</button>
+			</div>
+
+			<div class="mt-4 grid grid-cols-2 gap-1 rounded-lg bg-gray-100 p-1 text-sm font-medium" role="tablist">
+				<button
+					type="button"
+					role="tab"
+					aria-selected={addTab === 'existing'}
+					onclick={() => (addTab = 'existing')}
+					class="rounded-md px-3 py-1.5 transition {addTab === 'existing' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"
+				>
+					Existing
+				</button>
+				<button
+					type="button"
+					role="tab"
+					aria-selected={addTab === 'new'}
+					onclick={() => (addTab = 'new')}
+					class="rounded-md px-3 py-1.5 transition {addTab === 'new' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"
+				>
+					Create new
+				</button>
+			</div>
+
+			{#if addTab === 'existing'}
+				<div class="mt-4 space-y-4">
+					<div class="relative">
+						{@render iconSearch()}
+						<input
+							class="{inputClass} pl-9"
+							type="search"
+							placeholder={addModal === 'sub' ? 'Search subcategories' : 'Search products'}
+							aria-label="Search"
+							bind:value={pickSearch}
+						/>
+					</div>
+
+					{#if poolLoading && availableCount === 0}
+						<div class="space-y-2">
+							{#each [1, 2, 3] as n (n)}
+								<div class="h-12 animate-pulse rounded-lg bg-gray-100"></div>
+							{/each}
+						</div>
+					{:else if availableCount === 0}
+						<p class="rounded-lg border border-dashed border-gray-300 px-3 py-8 text-center text-sm text-gray-500">
+							{addModal === 'sub' ? 'No other subcategories available.' : 'No other products available.'}
+						</p>
+					{:else if (addModal === 'sub' ? visibleSubs.length : visiblePool.length) === 0}
+						<p class="rounded-lg border border-dashed border-gray-300 px-3 py-8 text-center text-sm text-gray-500">
+							No results for “{pickSearch}”.
+						</p>
+					{:else}
+						<ul class="max-h-72 divide-y divide-gray-100 overflow-y-auto rounded-lg border border-gray-200">
+							{#if addModal === 'sub'}
+								{#each visibleSubs as s (s.id)}
+									<li>
+										<label class="flex cursor-pointer items-center gap-3 px-3 py-2.5 hover:bg-gray-50">
+											<input
+												type="checkbox"
+												class="size-4 shrink-0 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+												checked={picked.includes(s.id)}
+												onchange={() => togglePick(s.id)}
+											/>
+											<div class="min-w-0 flex-1">
+												<p class="truncate text-sm font-medium text-gray-900">{s.name}</p>
+												<p class="text-xs text-gray-500">{countPoolSubProducts(s.id)} products</p>
+											</div>
+											<span class="shrink-0 rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+												In {categoryName(s.categoryId) ?? 'another category'}
+											</span>
+										</label>
+									</li>
+								{/each}
+							{:else}
+								{#each visiblePool as p (p.id)}
+									<li>
+										<label class="flex cursor-pointer items-center gap-3 px-3 py-2.5 hover:bg-gray-50">
+											<input
+												type="checkbox"
+												class="size-4 shrink-0 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+												checked={picked.includes(p.id)}
+												onchange={() => togglePick(p.id)}
+											/>
+											<div class="min-w-0 flex-1">
+												<p class="truncate text-sm font-medium text-gray-900">{p.name}</p>
+												<p class="text-xs text-gray-500">{money(p.price)}</p>
+											</div>
+											{#if p.categoryId}
+												<span class="shrink-0 rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+													In {categoryName(p.categoryId) ?? 'another category'}
+												</span>
+											{:else}
+												<span class="shrink-0 rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+													No category
+												</span>
+											{/if}
+										</label>
+									</li>
+								{/each}
+							{/if}
+						</ul>
+					{/if}
+
+					{#if addModal === 'product' && subs.length > 0}
+						<div>
+							<label for="pick-prod-sub" class="mb-1.5 block text-sm font-medium text-gray-700">
+								Place in subcategory <span class="font-normal text-gray-400">(optional)</span>
+							</label>
+							<select id="pick-prod-sub" class={inputClass} bind:value={prodSubId}>
+								<option value="">None (directly in {selected.name})</option>
+								{#each subs as s (s.id)}
+									<option value={s.id}>{s.name}</option>
+								{/each}
+							</select>
+						</div>
+					{/if}
+
+					{#if addModal === 'sub' && picked.length > 0}
+						<p class="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+							{picked.length === 1 ? 'This subcategory moves' : 'These subcategories move'} here together with their products.
+						</p>
+					{:else if addModal === 'product' && movingProds > 0}
+						<p class="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+							{movingProds}
+							{movingProds === 1 ? 'product will' : 'products will'} move here from another category.
+						</p>
+					{/if}
+
+					{#if attachError}
+						<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{attachError}</p>
+					{/if}
+
+					<div class="flex justify-end gap-2 pt-1">
+						<button type="button" onclick={closeAdd} class={ghostBtn}>Cancel</button>
+						<button type="button" onclick={attachSelected} disabled={attaching} class={primaryBtn}>
+							{#if attaching}
+								{@render spinner()}
+								Adding…
+							{:else}
+								{picked.length > 0 ? `Add ${picked.length} selected` : 'Add selected'}
+							{/if}
+						</button>
+					</div>
+				</div>
+			{:else if addModal === 'sub'}
+				<form class="mt-4 space-y-4" onsubmit={addSubcategory}>
 					<div>
-						<label for="cat-name" class="mb-1.5 block text-sm font-medium text-gray-700">
+						<label for="sub-name" class="mb-1.5 block text-sm font-medium text-gray-700">
 							Name <span class="text-red-500">*</span>
 						</label>
 						<input
-							id="cat-name"
+							id="sub-name"
 							class={inputClass}
 							type="text"
 							maxlength="80"
-							placeholder="e.g. Injectables"
-							bind:value={name}
+							placeholder="e.g. Botulinum"
+							bind:value={subName}
 						/>
 					</div>
 
 					<div>
 						<div class="mb-1.5 flex items-center justify-between">
-							<label for="cat-desc" class="text-sm font-medium text-gray-700">Description</label>
-							<span class="text-xs text-gray-400">{description.length}/200</span>
+							<label for="sub-desc" class="text-sm font-medium text-gray-700">Description</label>
+							<span class="text-xs text-gray-400">{subDesc.length}/200</span>
 						</div>
 						<textarea
-							id="cat-desc"
+							id="sub-desc"
 							class="{inputClass} resize-none"
-							rows="3"
+							rows="2"
 							maxlength="200"
-							placeholder="Optional. What kind of products belong here?"
-							bind:value={description}
+							placeholder="Optional."
+							bind:value={subDesc}
 						></textarea>
 					</div>
 
-					{#if formError}
-						<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{formError}</p>
+					{#if subError}
+						<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{subError}</p>
 					{/if}
 
-					<button
-						type="submit"
-						disabled={adding}
-						class="flex w-full items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-60"
-					>
-						{#if adding}
-							<span class="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white"></span>
-							Adding…
-						{:else}
-							<svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-								<path d="M10 4a1 1 0 0 1 1 1v4h4a1 1 0 1 1 0 2h-4v4a1 1 0 1 1-2 0v-4H5a1 1 0 1 1 0-2h4V5a1 1 0 0 1 1-1Z" />
-							</svg>
-							Add category
-						{/if}
-					</button>
+					<div class="flex justify-end gap-2 pt-1">
+						<button type="button" onclick={closeAdd} class={ghostBtn}>Cancel</button>
+						<button type="submit" disabled={addingSub} class={primaryBtn}>
+							{#if addingSub}
+								{@render spinner()}
+								Adding…
+							{:else}
+								Create subcategory
+							{/if}
+						</button>
+					</div>
 				</form>
-			</section>
+			{:else}
+				<form class="mt-4 space-y-4" onsubmit={addProduct}>
+					{#if subs.length > 0}
+						<div>
+							<label for="prod-sub" class="mb-1.5 block text-sm font-medium text-gray-700">
+								Subcategory <span class="font-normal text-gray-400">(optional)</span>
+							</label>
+							<select id="prod-sub" class={inputClass} bind:value={prodSubId}>
+								<option value="">None (directly in {selected.name})</option>
+								{#each subs as s (s.id)}
+									<option value={s.id}>{s.name}</option>
+								{/each}
+							</select>
+						</div>
+					{/if}
 
-			<!-- Add to the selected category: two dropdown sections -->
-			{#if selected}
-				<section class="overflow-hidden rounded-xl border border-gray-200 bg-white">
-					<div class="p-5 pb-4">
-						<h2 class="text-base font-semibold text-gray-900">Add to {selected.name}</h2>
-						<p class="mt-0.5 text-sm text-gray-500">Create subcategories and products for this category.</p>
-					</div>
-
-					<!-- Dropdown 1: subcategory -->
-					<div class="border-t border-gray-100">
-						<button
-							type="button"
-							onclick={() => (openSection = openSection === 'sub' ? null : 'sub')}
-							aria-expanded={openSection === 'sub'}
-							class="flex w-full items-center justify-between gap-3 px-5 py-3.5 text-left text-sm font-medium text-gray-900 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500"
-						>
-							<span>Add subcategory</span>
-							<svg class="size-4 text-gray-400 transition-transform {openSection === 'sub' ? 'rotate-180' : ''}" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-								<path d="M5.3 7.3a1 1 0 0 1 1.4 0L10 10.6l3.3-3.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 0-1.4Z" />
-							</svg>
-						</button>
-
-						{#if openSection === 'sub'}
-							<form class="space-y-4 px-5 pb-5 pt-1" onsubmit={addSubcategory}>
-								<div>
-									<label for="sub-name" class="mb-1.5 block text-sm font-medium text-gray-700">
-										Name <span class="text-red-500">*</span>
-									</label>
-									<input
-										id="sub-name"
-										class={inputClass}
-										type="text"
-										maxlength="80"
-										placeholder="e.g. Botox"
-										bind:value={subName}
-									/>
-								</div>
-
-								<div>
-									<div class="mb-1.5 flex items-center justify-between">
-										<label for="sub-desc" class="text-sm font-medium text-gray-700">Description</label>
-										<span class="text-xs text-gray-400">{subDesc.length}/200</span>
-									</div>
-									<textarea
-										id="sub-desc"
-										class="{inputClass} resize-none"
-										rows="2"
-										maxlength="200"
-										placeholder="Optional."
-										bind:value={subDesc}
-									></textarea>
-								</div>
-
-								{#if subError}
-									<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{subError}</p>
-								{/if}
-
-								<button
-									type="submit"
-									disabled={addingSub}
-									class="flex w-full items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-60"
-								>
-									{#if addingSub}
-										<span class="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white"></span>
-										Adding…
-									{:else}
-										Add subcategory
-									{/if}
-								</button>
-							</form>
-						{/if}
-					</div>
-
-					<!-- Dropdown 2: product -->
-					<div class="border-t border-gray-100">
-						<button
-							type="button"
-							onclick={() => (openSection = openSection === 'product' ? null : 'product')}
-							aria-expanded={openSection === 'product'}
-							class="flex w-full items-center justify-between gap-3 px-5 py-3.5 text-left text-sm font-medium text-gray-900 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500"
-						>
-							<span>Add product</span>
-							<svg class="size-4 text-gray-400 transition-transform {openSection === 'product' ? 'rotate-180' : ''}" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-								<path d="M5.3 7.3a1 1 0 0 1 1.4 0L10 10.6l3.3-3.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 0-1.4Z" />
-							</svg>
-						</button>
-
-						{#if openSection === 'product'}
-							<form class="space-y-4 px-5 pb-5 pt-1" onsubmit={addProduct}>
-								<!-- only shown when the category has subcategories -->
-								{#if subs.length > 0}
-									<div>
-										<label for="prod-sub" class="mb-1.5 block text-sm font-medium text-gray-700">
-											Subcategory <span class="font-normal text-gray-400">(optional)</span>
-										</label>
-										<select id="prod-sub" class={inputClass} bind:value={prodSubId}>
-											<option value="">None (directly in {selected.name})</option>
-											{#each subs as s (s.id)}
-												<option value={s.id}>{s.name}</option>
-											{/each}
-										</select>
-									</div>
-								{/if}
-
-								<div>
-									<label for="prod-name" class="mb-1.5 block text-sm font-medium text-gray-700">
-										Name <span class="text-red-500">*</span>
-									</label>
-									<input
-										id="prod-name"
-										class={inputClass}
-										type="text"
-										maxlength="120"
-										placeholder="e.g. Botox 100U"
-										bind:value={prodName}
-									/>
-								</div>
-
-								<div>
-									<label for="prod-price" class="mb-1.5 block text-sm font-medium text-gray-700">
-										Price <span class="text-red-500">*</span>
-									</label>
-									<div class="relative">
-										<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
-										<input
-											id="prod-price"
-											class="{inputClass} pl-7"
-											type="number"
-											min="0"
-											step="0.01"
-											inputmode="decimal"
-											placeholder="0.00"
-											bind:value={prodPrice}
-										/>
-									</div>
-								</div>
-
-								<div>
-									<div class="mb-1.5 flex items-center justify-between">
-										<label for="prod-desc" class="text-sm font-medium text-gray-700">Description</label>
-										<span class="text-xs text-gray-400">{prodDesc.length}/300</span>
-									</div>
-									<textarea
-										id="prod-desc"
-										class="{inputClass} resize-none"
-										rows="2"
-										maxlength="300"
-										placeholder="Optional."
-										bind:value={prodDesc}
-									></textarea>
-								</div>
-
-								{#if prodError}
-									<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{prodError}</p>
-								{/if}
-
-								<button
-									type="submit"
-									disabled={addingProd}
-									class="flex w-full items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-60"
-								>
-									{#if addingProd}
-										<span class="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white"></span>
-										Adding…
-									{:else}
-										Add product
-									{/if}
-								</button>
-							</form>
-						{/if}
-					</div>
-				</section>
-			{/if}
-		</div>
-
-		<!-- ================= RIGHT COLUMN ================= -->
-		<div class="min-w-0 space-y-6">
-			<!-- All categories -->
-			<section class="rounded-xl border border-gray-200 bg-white p-5">
-				<div class="flex flex-wrap items-center justify-between gap-3">
 					<div>
-						<h2 class="text-base font-semibold text-gray-900">All categories</h2>
-						<p class="mt-0.5 text-sm text-gray-500">
-							{categories.length}
-							{categories.length === 1 ? 'category' : 'categories'} · {activeCount} active · click a card to see what's inside
-						</p>
-					</div>
-					<div class="relative w-full sm:w-64">
-						<svg class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-							<path fill-rule="evenodd" d="M9 3a6 6 0 1 0 3.6 10.8l3.3 3.3a1 1 0 0 0 1.4-1.4l-3.3-3.3A6 6 0 0 0 9 3Zm-4 6a4 4 0 1 1 8 0 4 4 0 0 1-8 0Z" clip-rule="evenodd" />
-						</svg>
+						<label for="prod-name" class="mb-1.5 block text-sm font-medium text-gray-700">
+							Name <span class="text-red-500">*</span>
+						</label>
 						<input
-							class="{inputClass} pl-9"
-							type="search"
-							placeholder="Search categories"
-							aria-label="Search categories"
-							bind:value={search}
+							id="prod-name"
+							class={inputClass}
+							type="text"
+							maxlength="120"
+							placeholder="e.g. Revolax Deep"
+							bind:value={prodName}
 						/>
 					</div>
-				</div>
 
-				<div class="mt-5 pt-5">
-					{#if loading}
-						<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-							{#each [1, 2, 3, 4, 5, 6] as n (n)}
-								<div class="h-36 animate-pulse rounded-xl bg-gray-100"></div>
-							{/each}
+					<div>
+						<label for="prod-price" class="mb-1.5 block text-sm font-medium text-gray-700">
+							Price <span class="text-red-500">*</span>
+						</label>
+						<div class="relative">
+							<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
+							<input
+								id="prod-price"
+								class="{inputClass} pl-7"
+								type="number"
+								min="0"
+								step="0.01"
+								inputmode="decimal"
+								placeholder="0.00"
+								bind:value={prodPrice}
+							/>
 						</div>
-					{:else if filtered.length === 0}
-						<div class="rounded-xl border border-dashed border-gray-300 px-5 py-14 text-center text-sm text-gray-500">
-							{#if categories.length === 0}
-								No categories yet. Add your first one using the form.
-							{:else}
-								No categories match “{search}”.
-							{/if}
-						</div>
-					{:else}
-						<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-							{#each filtered as c (c.id)}
-								{@const active = c.isActive !== false}
-								<!-- svelte-ignore a11y_click_events_have_key_events -->
-								<article
-									role="button"
-									tabindex="0"
-									aria-pressed={selectedId === c.id}
-									onclick={() => selectCategory(c)}
-									onkeydown={(e) => {
-										if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
-											e.preventDefault();
-											selectCategory(c);
-										}
-									}}
-									class="flex cursor-pointer flex-col rounded-xl border p-5 text-left transition hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500
-										{selectedId === c.id ? 'border-emerald-500 ring-1 ring-emerald-500' : 'border-gray-200 hover:border-gray-300'}
-										{active ? 'bg-white' : 'bg-gray-50'}"
-								>
-									<!-- top row: name + toggle -->
-									<div class="flex items-start justify-between gap-3">
-										<h3 class="min-w-0 truncate text-base font-semibold {active ? 'text-gray-900' : 'text-gray-500'}" title={c.name}>
-											{c.name}
-										</h3>
-
-										<button
-											type="button"
-											role="switch"
-											aria-checked={active}
-											aria-label="{active ? 'Deactivate' : 'Activate'} {c.name}"
-											disabled={togglingId === c.id}
-											onclick={(e) => {
-												e.stopPropagation();
-												toggleActive(c);
-											}}
-											class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-60 {active ? 'bg-emerald-600' : 'bg-gray-300'}"
-										>
-											<span class="inline-block size-5 rounded-full bg-white shadow transition-transform {active ? 'translate-x-5' : 'translate-x-0.5'}"></span>
-										</button>
-									</div>
-
-									<!-- description -->
-									<div class="mt-2 flex-1">
-										{#if c.description}
-											<p class="line-clamp-2 text-sm text-gray-600" title={c.description}>{c.description}</p>
-										{:else}
-											<p class="text-sm text-gray-400">No description</p>
-										{/if}
-									</div>
-
-									<!-- meta -->
-									<div class="mt-4 flex items-center gap-2 text-xs">
-										<span class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-medium {active ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}">
-											<span class="size-1.5 rounded-full {active ? 'bg-emerald-500' : 'bg-gray-400'}"></span>
-											{active ? 'Active' : 'Inactive'}
-										</span>
-										<span class="text-gray-400">·</span>
-										<span class="text-gray-500">{formatDate(c.createdAt)}</span>
-									</div>
-
-									<!-- actions -->
-									<div class="mt-4 flex items-center justify-end gap-1 border-t border-gray-100 pt-3">
-										{#if confirmingId === c.id}
-											<span class="mr-auto text-xs text-gray-500">Delete this category?</span>
-											<button
-												type="button"
-												disabled={deletingId === c.id}
-												onclick={(e) => {
-													e.stopPropagation();
-													removeCategory(c.id);
-												}}
-												class="rounded-md bg-red-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60"
-											>
-												{deletingId === c.id ? 'Deleting…' : 'Delete'}
-											</button>
-											<button
-												type="button"
-												onclick={(e) => {
-													e.stopPropagation();
-													confirmingId = null;
-												}}
-												class="rounded-md px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100"
-											>
-												Cancel
-											</button>
-										{:else}
-											<button
-												type="button"
-												onclick={(e) => {
-													e.stopPropagation();
-													openEdit(c);
-												}}
-												class="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-											>
-												<svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-													<path d="M13.6 2.6a2 2 0 0 1 2.8 2.8l-.9.9-2.8-2.8.9-.9ZM11.3 4.9 3 13.2V16h2.8l8.3-8.3-2.8-2.8Z" />
-												</svg>
-												Edit
-											</button>
-											<button
-												type="button"
-												onclick={(e) => {
-													e.stopPropagation();
-													confirmingId = c.id;
-												}}
-												class="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-red-50 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
-											>
-												<svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-													<path fill-rule="evenodd" d="M8 2a1 1 0 0 0-1 1v1H4a1 1 0 0 0 0 2h.1l.8 9.1A2 2 0 0 0 6.9 17h6.2a2 2 0 0 0 2-1.9l.8-9.1H16a1 1 0 1 0 0-2h-3V3a1 1 0 0 0-1-1H8Zm1 2V4h2v0H9Z" clip-rule="evenodd" />
-												</svg>
-												Delete
-											</button>
-										{/if}
-									</div>
-								</article>
-							{/each}
-						</div>
-					{/if}
-				</div>
-			</section>
-
-			<!-- Details card: directly under the categories card -->
-			{#if selected}
-				<section bind:this={panelEl} class="rounded-xl border border-gray-200 bg-white p-5">
-					<div class="flex items-start justify-between gap-3">
-						<div class="min-w-0">
-							<h2 class="truncate text-base font-semibold text-gray-900">{selected.name}</h2>
-							<p class="mt-0.5 text-sm text-gray-500">
-								{#if detailsLoading}
-									Loading…
-								{:else}
-									{subs.length} {subs.length === 1 ? 'subcategory' : 'subcategories'} · {directProducts.length}
-									{directProducts.length === 1 ? 'product' : 'products'} directly in this category
-								{/if}
-							</p>
-						</div>
-						<button
-							type="button"
-							onclick={closePanel}
-							aria-label="Close details"
-							class="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-						>
-							<svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-								<path d="M5.3 5.3a1 1 0 0 1 1.4 0L10 8.6l3.3-3.3a1 1 0 1 1 1.4 1.4L11.4 10l3.3 3.3a1 1 0 0 1-1.4 1.4L10 11.4l-3.3 3.3a1 1 0 0 1-1.4-1.4L8.6 10 5.3 6.7a1 1 0 0 1 0-1.4Z" />
-							</svg>
-						</button>
 					</div>
 
-					{#if detailsLoading}
-						<div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-							{#each [1, 2, 3] as n (n)}
-								<div class="h-24 animate-pulse rounded-lg bg-gray-100"></div>
-							{/each}
+					<div>
+						<div class="mb-1.5 flex items-center justify-between">
+							<label for="prod-desc" class="text-sm font-medium text-gray-700">Description</label>
+							<span class="text-xs text-gray-400">{prodDesc.length}/300</span>
 						</div>
-					{:else if detailsError}
-						<p class="mt-5 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{detailsError}</p>
-					{:else}
-						<!-- Subcategories -->
-						<h3 class="mt-5 text-sm font-semibold text-gray-900">Subcategories</h3>
-						{#if subs.length === 0}
-							<div class="mt-3 rounded-lg border border-dashed border-gray-300 px-4 py-6 text-center text-sm text-gray-500">
-								No subcategories yet. Use “Add subcategory” on the left.
-							</div>
-						{:else}
-							<div class="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-								{#each subs as s (s.id)}
-									<!-- svelte-ignore a11y_click_events_have_key_events -->
-									<div
-										role="button"
-										tabindex="0"
-										aria-pressed={selectedSubId === s.id}
-										onclick={() => toggleSub(s)}
-										onkeydown={(e) => {
-											if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
-												e.preventDefault();
-												toggleSub(s);
-											}
-										}}
-										class="flex cursor-pointer flex-col rounded-lg border bg-white p-4 text-left transition hover:border-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500
-											{selectedSubId === s.id ? 'border-emerald-500 ring-1 ring-emerald-500' : 'border-gray-200'}"
-									>
-										<p class="truncate font-medium text-gray-900" title={s.name}>{s.name}</p>
-										<p class="mt-0.5 line-clamp-1 text-sm text-gray-500">{s.description ?? 'No description'}</p>
-										<p class="mt-3 text-xs text-gray-500">{countSubProducts(s.id)} products</p>
+						<textarea
+							id="prod-desc"
+							class="{inputClass} resize-none"
+							rows="2"
+							maxlength="300"
+							placeholder="Optional."
+							bind:value={prodDesc}
+						></textarea>
+					</div>
 
-										<div class="mt-3 flex items-center justify-end gap-1 border-t border-gray-100 pt-2">
-											{#if confirmingSubId === s.id}
-												<span class="mr-auto text-xs text-gray-500">Delete?</span>
-												<button
-													type="button"
-													disabled={deletingSubId === s.id}
-													onclick={(e) => {
-														e.stopPropagation();
-														removeSub(s.id);
-													}}
-													class="rounded-md bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60"
-												>
-													{deletingSubId === s.id ? '…' : 'Yes'}
-												</button>
-												<button
-													type="button"
-													onclick={(e) => {
-														e.stopPropagation();
-														confirmingSubId = null;
-													}}
-													class="rounded-md px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100"
-												>
-													No
-												</button>
-											{:else}
-												<button
-													type="button"
-													onclick={(e) => {
-														e.stopPropagation();
-														openEditSub(s);
-													}}
-													class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-												>
-													Edit
-												</button>
-												<button
-													type="button"
-													onclick={(e) => {
-														e.stopPropagation();
-														confirmingSubId = s.id;
-													}}
-													class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-gray-600 hover:bg-red-50 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
-												>
-													Delete
-												</button>
-											{/if}
-										</div>
-									</div>
-								{/each}
-							</div>
-
-							<!-- Products of the opened subcategory -->
-							{#if selectedSub}
-								<h3 class="mt-6 text-sm font-semibold text-gray-900">Products in {selectedSub.name}</h3>
-								{#if subProducts.length === 0}
-									<div class="mt-3 rounded-lg border border-dashed border-gray-300 px-4 py-6 text-center text-sm text-gray-500">
-										No products in this subcategory yet.
-									</div>
-								{:else}
-									{@render productList(subProducts)}
-								{/if}
-							{/if}
-						{/if}
-
-						<!-- Direct products (no subcategory) -->
-						<h3 class="mt-6 text-sm font-semibold text-gray-900">
-							{subs.length > 0 ? 'Products without a subcategory' : 'Products'}
-						</h3>
-						{#if directProducts.length === 0}
-							<div class="mt-3 rounded-lg border border-dashed border-gray-300 px-4 py-6 text-center text-sm text-gray-500">
-								{subs.length > 0 ? 'No products directly in this category.' : 'No products yet.'}
-							</div>
-						{:else}
-							{@render productList(directProducts)}
-						{/if}
+					{#if prodError}
+						<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{prodError}</p>
 					{/if}
-				</section>
+
+					<div class="flex justify-end gap-2 pt-1">
+						<button type="button" onclick={closeAdd} class={ghostBtn}>Cancel</button>
+						<button type="submit" disabled={addingProd} class={primaryBtn}>
+							{#if addingProd}
+								{@render spinner()}
+								Adding…
+							{:else}
+								Create product
+							{/if}
+						</button>
+					</div>
+				</form>
 			{/if}
 		</div>
 	</div>
-</div>
+{/if}
 
 <!-- Edit category modal -->
 {#if editing}
@@ -1171,14 +1425,8 @@
 				{/if}
 
 				<div class="flex justify-end gap-2 pt-1">
-					<button type="button" onclick={closeEdit} class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">
-						Cancel
-					</button>
-					<button
-						type="submit"
-						disabled={saving}
-						class="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-60"
-					>
+					<button type="button" onclick={closeEdit} class={ghostBtn}>Cancel</button>
+					<button type="submit" disabled={saving} class={primaryBtn}>
 						{saving ? 'Saving…' : 'Save changes'}
 					</button>
 				</div>
@@ -1215,14 +1463,8 @@
 				{/if}
 
 				<div class="flex justify-end gap-2 pt-1">
-					<button type="button" onclick={closeEditSub} class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">
-						Cancel
-					</button>
-					<button
-						type="submit"
-						disabled={savingSub}
-						class="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-60"
-					>
+					<button type="button" onclick={closeEditSub} class={ghostBtn}>Cancel</button>
+					<button type="submit" disabled={savingSub} class={primaryBtn}>
 						{savingSub ? 'Saving…' : 'Save changes'}
 					</button>
 				</div>
@@ -1292,14 +1534,8 @@
 				{/if}
 
 				<div class="flex justify-end gap-2 pt-1">
-					<button type="button" onclick={closeEditProd} class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">
-						Cancel
-					</button>
-					<button
-						type="submit"
-						disabled={savingProd}
-						class="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-60"
-					>
+					<button type="button" onclick={closeEditProd} class={ghostBtn}>Cancel</button>
+					<button type="submit" disabled={savingProd} class={primaryBtn}>
 						{savingProd ? 'Saving…' : 'Save changes'}
 					</button>
 				</div>

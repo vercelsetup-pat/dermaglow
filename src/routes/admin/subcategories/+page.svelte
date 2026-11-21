@@ -1,19 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 
-	type Category = {
-		id: string;
-		name: string;
-		isActive?: boolean;
-	};
-	type Subcategory = {
-		id: string;
-		categoryId: string;
-		name: string;
-		description: string | null;
-		createdAt?: string | null;
-	};
-
+	import type { Category, Subcategory, Product } from '#lib/types.ts';
+	type Id = string;
+	
 	const CATEGORIES_API = '/api/categories';
 	const API = '/api/subcategories';
 
