@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import type { Category, Subcategory, Product } from '#lib/types.ts';
 	import { PlusOutline, PenOutline, TrashBinOutline, CloseOutline } from "flowbite-svelte-icons";
-	import { Spinner } from "flowbite-svelte";
+	import { Spinner, Toggle } from "flowbite-svelte";
 	
 	type Id = string;
 	const API = '/api/categories';
@@ -786,19 +786,11 @@
 				</div>
 
 				<div class="flex items-center gap-1.5">
-					<button
-						type="button"
-						role="switch"
-						aria-checked={selectedActive}
-						aria-label="{selectedActive ? 'Hide' : 'Show'} {selected.name} in the store"
+					<Toggle	color="green" checked={selectedActive} disabled={togglingId === selected.id} onchange={() => toggleActive(selected)} aria-label="{selectedActive ? 'Hide' : 'Show'} {selected.name} in the store"
 						title={selectedActive ? 'Visible in store' : 'Hidden from store'}
-						disabled={togglingId === selected.id}
-						onclick={() => toggleActive(selected)}
-						class="relative mr-2 inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-60 {selectedActive ? 'bg-emerald-600' : 'bg-gray-300'}"
-					>
-						<span class="inline-block size-5 rounded-full bg-white shadow transition-transform {selectedActive ? 'translate-x-5' : 'translate-x-0.5'}"></span>
-					</button>
-
+						class="mr-2"
+					/>
+						
 					{#if confirmingId === selected.id}
 						<span class="text-xs text-gray-500">Delete this category?</span>
 						<button
@@ -847,7 +839,7 @@
 			{:else if detailsError}
 				<p class="mt-6 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{detailsError}</p>
 			{:else}
-				<!-- stat tiles -->
+				<!--Card Titles -->
 				<div class="mt-6 grid gap-3 sm:grid-cols-3">
 					<div class="rounded-lg bg-gray-50 px-4 py-3">
 						<p class="text-xs text-gray-500">Subcategories</p>
