@@ -612,8 +612,8 @@
 		}
 	});
 	
-	const primaryBtn =
-		'inline-flex items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-60';
+	
+
 	const ghostBtn =
 		'rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100';
 	const outlineBtn =
@@ -623,9 +623,6 @@
 </script>
 
 <svelte:window onkeydown={(e) => { if (e.key === 'Escape') { closeAdd(); closeNewCategory(); closeEdit(); closeEditSub(); closeEditProd();}}}/>
-
-
-
 
 <!-- Product rows -->
 {#snippet productList(items: Product[])}
@@ -913,7 +910,7 @@
 							<PlusOutline class="shrink-0 h-4 w-4" />
 							Subcategory
 						</button>
-						<button type="button" onclick={() => openAdd('product')} class={primaryBtn}>
+						<button type="button" onclick={() => openAdd('product')} class="btn-primary">
 							<PlusOutline class="shrink-0 h-4 w-4" />
 							Product
 						</button>
@@ -972,7 +969,7 @@
 							<p class="mt-1 text-sm text-gray-500">
 								Add an existing product or create a new one for {selected.name}.
 							</p>
-							<button type="button" onclick={() => openAdd('product')} class="{primaryBtn} mt-4">
+							<button type="button" onclick={() => openAdd('product')} class="btn-primary mt-4">
 								<PlusOutline class="shrink-0 h-4 w-4" />
 								Add product
 							</button>
@@ -1034,7 +1031,7 @@
 
 				<div class="flex justify-end gap-2 pt-1">
 					<button type="button" onclick={closeNewCategory} class={ghostBtn}>Cancel</button>
-					<button type="submit" disabled={adding} class={primaryBtn}>
+					<button type="submit" disabled={adding} class="btn-primary">
 						{#if adding}
 							<Spinner />
 							Adding…
@@ -1197,7 +1194,7 @@
 
 					<div class="flex justify-end gap-2 pt-1">
 						<button type="button" onclick={closeAdd} class={ghostBtn}>Cancel</button>
-						<button type="button" onclick={attachSelected} disabled={attaching} class={primaryBtn}>
+						<button type="button" onclick={attachSelected} disabled={attaching} class="btn-primary">
 							{#if attaching}
 								<Spinner />
 								Adding…
@@ -1244,7 +1241,7 @@
 
 					<div class="flex justify-end gap-2 pt-1">
 						<button type="button" onclick={closeAdd} class={ghostBtn}>Cancel</button>
-						<button type="submit" disabled={addingSub} class={primaryBtn}>
+						<button type="submit" disabled={addingSub} class="btn-primary">
 							{#if addingSub}
 								<Spinner />
 								Adding…
@@ -1324,7 +1321,7 @@
 
 					<div class="flex justify-end gap-2 pt-1">
 						<button type="button" onclick={closeAdd} class={ghostBtn}>Cancel</button>
-						<button type="submit" disabled={addingProd} class={primaryBtn}>
+						<button type="submit" disabled={addingProd} class="btn-primary">
 							{#if addingProd}
 								<Spinner />
 								Adding…
@@ -1368,7 +1365,7 @@
 
 				<div class="flex justify-end gap-2 pt-1">
 					<button type="button" onclick={closeEdit} class={ghostBtn}>Cancel</button>
-					<button type="submit" disabled={saving} class={primaryBtn}>
+					<button type="submit" disabled={saving} class="btn-primary">
 						{saving ? 'Saving…' : 'Save changes'}
 					</button>
 				</div>
@@ -1406,7 +1403,7 @@
 
 				<div class="flex justify-end gap-2 pt-1">
 					<button type="button" onclick={closeEditSub} class={ghostBtn}>Cancel</button>
-					<button type="submit" disabled={savingSub} class={primaryBtn}>
+					<button type="submit" disabled={savingSub} class="btn-primary">
 						{savingSub ? 'Saving…' : 'Save changes'}
 					</button>
 				</div>
@@ -1477,7 +1474,7 @@
 
 				<div class="flex justify-end gap-2 pt-1">
 					<button type="button" onclick={closeEditProd} class={ghostBtn}>Cancel</button>
-					<button type="submit" disabled={savingProd} class={primaryBtn}>
+					<button type="submit" disabled={savingProd} class="btn-primary">
 						{savingProd ? 'Saving…' : 'Save changes'}
 					</button>
 				</div>

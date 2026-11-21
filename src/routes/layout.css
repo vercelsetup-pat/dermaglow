@@ -1,5 +1,11 @@
 @import 'tailwindcss';
 
+:root {
+    --color-primary: #29B24A;
+    --color-secondary: #0278BD;
+    --color-light: #ffffff;
+    --color-alternative: #f3f4f6;
+}
 
 .input-field{
     width: 100%;
@@ -27,4 +33,41 @@
 .input-field:disabled {
 	background-color: #f9fafb;
 	color: #9ca3af;
+}
+
+.btn-primary,
+.btn-secondary {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	border-radius: 0.5rem;
+	padding: 0.5rem 1rem;
+	font-size: 0.875rem;
+	font-weight: 500;
+	color: #ffffff;
+	transition: background-color 0.2s ease;
+	cursor: pointer;
+}
+
+.btn-primary {
+	background-color: var(--color-primary);
+}
+
+.btn-primary:hover:not(:disabled) {
+	background-color: color-mix(in srgb, var(--color-primary), black 12%);
+}
+
+.btn-secondary {
+	background-color: var(--color-secondary);
+}
+
+.btn-secondary:hover:not(:disabled) {
+	background-color: color-mix(in srgb, var(--color-secondary), black 12%);
+}
+
+.btn-primary:disabled,
+.btn-secondary:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
 }
