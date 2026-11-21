@@ -1,93 +1,84 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import type { Category, Subcategory, Product } from '#lib/types.ts';
-	type Id = string;
+	import { PlusOutline, PenOutline, TrashBinOutline, CloseOutline } from "flowbite-svelte-icons";
+	import { Spinner } from "flowbite-svelte";
 	
+	type Id = string;
 	const API = '/api/categories';
 	const SUBS_API = '/api/subcategories';
 	const PRODUCTS_API = '/api/products';
 	const NONE = '__none';
 
-	let categories = $state<Category[]>([]);
-	let loading = $state(true);
-	let search = $state('');
+	//#region Variables Boolean
+		let addingSub = $state(false);
+		let attaching = $state(false);
+		let adding = $state(false);
+		let addingProd = $state(false);
+		let detailsLoading = $state(false);
+		let loading = $state(true);
+		let newCatOpen = $state(false);
+		let saving = $state(false);
+		let savingSub = $state(false);
+		let savingProd = $state(false);
+		let poolLoading = $state(false);
+	//#endregion
 
-	let newCatOpen = $state(false);
-	let name = $state('');
-	let description = $state('');
-	let adding = $state(false);
-	let formError = $state('');
+	//#region Variables String
+		let search = $state('');
+		let name = $state('');
+		let description = $state('');
+		let formError = $state('');
+		let editName = $state('');
+		let editDescription = $state('');
+		let editError = $state('');
+		let editSubName = $state('');
+		let editSubDesc = $state('');
+		let editProdSubId = $state('');
+		let editProdName = $state('');
+		let editProdDesc = $state('');
+		let editProdError = $state('');
+		let editSubError = $state('');
+		let detailsError = $state('');
+		let subName = $state('');
+		let subDesc = $state('');
+		let attachError = $state('');
+		let subError = $state('');
+		let prodSubId = $state('');
+		let prodName = $state('');
+		let prodDesc = $state('');
+		let prodError = $state('');
+	//#endregion
 
-	// ---------- edit category modal ----------
-	let editing = $state<Category | null>(null);
-	let editName = $state('');
-	let editDescription = $state('');
-	let saving = $state(false);
-	let editError = $state('');
+	//#region Variables Others
+		let categories = $state<Category[]>([]);
+		let editing = $state<Category | null>(null);
+		let editingSub = $state<Subcategory | null>(null);
+		let editingProd = $state<Product | null>(null);
+		let subs = $state<Subcategory[]>([]);
+		let prods = $state<Product[]>([]);
+		let confirmingId = $state<Id | null>(null);
+		let deletingId = $state<Id | null>(null);
+		let togglingId = $state<Id | null>(null);
+		let selectedId = $state<Id | null>(null);
+		let filter = $state<'all' | typeof NONE | Id>('all');
+		let panelEl = $state<HTMLElement | null>(null);
+		let addModal = $state<'sub' | 'product' | null>(null);
+		let addTab = $state<'existing' | 'new'>('existing');
+		let allSubs = $state<Subcategory[]>([]);
+		let allProds = $state<Product[]>([]);
+		let pickSearch = $state('');
+		let picked = $state<Id[]>([]);
+		let prodPrice = $state<number | string | null>('');
+		let confirmingSubId = $state<Id | null>(null);
+		let deletingSubId = $state<Id | null>(null);
+		let editProdPrice = $state<number | string | null>('');
 
-	// ---------- category delete + toggle ----------
-	let confirmingId = $state<Id | null>(null);
-	let deletingId = $state<Id | null>(null);
-	let togglingId = $state<Id | null>(null);
-
-	// ---------- selection + details ----------
-	let selectedId = $state<Id | null>(null);
-	let filter = $state<'all' | typeof NONE | Id>('all');
-	let subs = $state<Subcategory[]>([]);
-	let prods = $state<Product[]>([]);
-	let detailsLoading = $state(false);
-	let detailsError = $state('');
-	let panelEl = $state<HTMLElement | null>(null);
-
-	// ---------- "+ Add" modal (existing / create new) ----------
-	let addModal = $state<'sub' | 'product' | null>(null);
-	let addTab = $state<'existing' | 'new'>('existing');
-
-	let allSubs = $state<Subcategory[]>([]);
-	let allProds = $state<Product[]>([]);
-	let poolLoading = $state(false);
-
-	let pickSearch = $state('');
-	let picked = $state<Id[]>([]);
-	let attaching = $state(false);
-	let attachError = $state('');
-
-	let subName = $state('');
-	let subDesc = $state('');
-	let addingSub = $state(false);
-	let subError = $state('');
-
-	// prodSubId is used by both the "create new" and the "existing" product tabs
-	let prodSubId = $state('');
-	let prodName = $state('');
-	let prodPrice = $state<number | string | null>('');
-	let prodDesc = $state('');
-	let addingProd = $state(false);
-	let prodError = $state('');
-
-	// ---------- edit / delete subcategory ----------
-	let editingSub = $state<Subcategory | null>(null);
-	let editSubName = $state('');
-	let editSubDesc = $state('');
-	let savingSub = $state(false);
-	let editSubError = $state('');
-	let confirmingSubId = $state<Id | null>(null);
-	let deletingSubId = $state<Id | null>(null);
-
-	// ---------- edit / delete product ----------
-	let editingProd = $state<Product | null>(null);
-	let editProdSubId = $state('');
-	let editProdName = $state('');
-	let editProdPrice = $state<number | string | null>('');
-	let editProdDesc = $state('');
-	let savingProd = $state(false);
-	let editProdError = $state('');
-	let confirmingProdId = $state<Id | null>(null);
-	let deletingProdId = $state<Id | null>(null);
-
-	// ---------- toast ----------
-	let toast = $state<{ type: 'success' | 'error'; text: string } | null>(null);
-	let toastTimer: ReturnType<typeof setTimeout> | undefined;
+		let confirmingProdId = $state<Id | null>(null);
+		let deletingProdId = $state<Id | null>(null);
+		let toast = $state<{ type: 'success' | 'error'; text: string } | null>(null);
+		let toastTimer: ReturnType<typeof setTimeout> | undefined;
+	//#endregion
 
 	const filtered = $derived.by(() => {
 		const q = search.trim().toLowerCase();
@@ -133,30 +124,482 @@
 	const money = (v: number | string) =>
 		`$${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-	function notify(type: 'success' | 'error', text: string) {
-		toast = { type, text };
-		clearTimeout(toastTimer);
-		toastTimer = setTimeout(() => (toast = null), 3000);
-	}
 
-	async function api<T>(url: string, init?: RequestInit): Promise<T> {
-		const res = await fetch(url, {
-			headers: { 'Content-Type': 'application/json' },
-			...init
-		});
-		const body = await res.json().catch(() => null);
-		if (!res.ok || !body?.success) {
-			throw new Error(body?.message ?? 'Something went wrong. Please try again.');
+	//#region Functions
+		function clearSelection() {
+			selectedId = null;
+			filter = 'all';
+			subs = [];
+			prods = [];
+			detailsError = '';
+			resetAddForms();
 		}
-		return body.data as T;
-	}
 
-	function validPrice(value: number | string | null) {
-		const s = String(value ?? '').trim();
-		if (s === '') return false;
-		const n = Number(s);
-		return Number.isFinite(n) && n >= 0;
-	}
+		function closeAdd() {
+			if (attaching || addingSub || addingProd) return;
+			addModal = null;
+		}
+
+		function closeEditSub() {
+			if (savingSub) return;
+			editingSub = null;
+		}
+
+		function closeEditProd() {
+			if (savingProd) return;
+			editingProd = null;
+		}
+
+		function closeNewCategory() {
+			if (adding) return;
+			newCatOpen = false;
+		}
+
+		function closeEdit() {
+			if (saving) return;
+			editing = null;
+		}
+
+		function notify(type: 'success' | 'error', text: string) {
+			toast = { type, text };
+			clearTimeout(toastTimer);
+			toastTimer = setTimeout(() => (toast = null), 3000);
+		}
+
+		function openAdd(kind: 'sub' | 'product') {
+			addModal = kind;
+			addTab = 'existing';
+			pickSearch = '';
+			picked = [];
+			attachError = '';
+			subError = '';
+			prodError = '';
+			if (kind === 'product') prodSubId = selectedSub ? selectedSub.id : '';
+			loadPool();
+		}
+
+		function openEditSub(s: Subcategory) {
+			editingSub = s;
+			editSubName = s.name;
+			editSubDesc = s.description ?? '';
+			editSubError = '';
+		}
+
+		function openEditProd(p: Product) {
+			editingProd = p;
+			editProdSubId = p.subcategoryId ?? '';
+			editProdName = p.name;
+			editProdPrice = String(p.price);
+			editProdDesc = p.description ?? '';
+			editProdError = '';
+		}
+
+		function openEdit(c: Category) {
+			editing = c;
+			editName = c.name;
+			editDescription = c.description ?? '';
+			editError = '';
+		}
+
+		function selectCategory(c: Category, scroll = true) {
+			if (selectedId === c.id) return;
+				selectedId = c.id;
+				filter = 'all';
+				confirmingId = null;
+				resetAddForms();
+				loadDetails(c);
+			if (scroll && typeof window !== 'undefined' && window.innerWidth < 1024) {
+				setTimeout(() => panelEl?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+			}
+		}
+
+		function validPrice(value: number | string | null) {
+			const s = String(value ?? '').trim();
+			if (s === '') return false;
+			const n = Number(s);
+			return Number.isFinite(n) && n >= 0;
+		}
+
+		function resetAddForms() {
+			addModal = null;
+			addTab = 'existing';
+			pickSearch = '';
+			picked = [];
+			attachError = '';
+			subName = '';
+			subDesc = '';
+			subError = '';
+			prodSubId = '';
+			prodName = '';
+			prodPrice = '';
+			prodDesc = '';
+			prodError = '';
+			confirmingSubId = null;
+			confirmingProdId = null;
+		}
+
+		function togglePick(id: Id) {
+			picked = picked.includes(id) ? picked.filter((x) => x !== id) : [...picked, id];
+			attachError = '';
+		}
+	//#endregion 
+
+	//#region Async Functions
+		async function addCategory(e: SubmitEvent) {
+			e.preventDefault();
+			formError = '';
+			if (!name.trim()) {
+				formError = 'Enter a category name.';
+				return;
+			}
+			adding = true;
+			try {
+				const created = await api<Category>(API, {
+					method: 'POST',
+					body: JSON.stringify({ name, description })
+				});
+				categories = [created, ...categories];
+				name = '';
+				description = '';
+				newCatOpen = false;
+				notify('success', 'Category added.');
+				selectCategory(created);
+			} catch (err) {
+				formError = err instanceof Error ? err.message : 'Could not add category.';
+			} finally {
+				adding = false;
+			}
+		}
+
+		async function api<T>(url: string, init?: RequestInit): Promise<T> {
+			const res = await fetch(url, {
+				headers: { 'Content-Type': 'application/json' },
+				...init
+			});
+			const body = await res.json().catch(() => null);
+			if (!res.ok || !body?.success) {
+				throw new Error(body?.message ?? 'Something went wrong. Please try again.');
+			}
+			return body.data as T;
+		}
+
+		async function attachSelected() {
+			const cat = selected;
+			const kind = addModal;
+			if (!cat || !kind) return;
+			if (picked.length === 0) {
+				attachError = kind === 'sub' ? 'Select at least one subcategory.' : 'Select at least one product.';
+				return;
+			}
+
+			attaching = true;
+			attachError = '';
+			const total = picked.length;
+			const failed: Id[] = [];
+			let lastMessage = '';
+
+			for (const id of picked) {
+				try {
+					if (kind === 'sub') {
+						await api(`${SUBS_API}/${id}/move`, {
+							method: 'POST',
+							body: JSON.stringify({ categoryId: cat.id })
+						});
+					} else {
+						await api(`${PRODUCTS_API}/${id}/assign`, {
+							method: 'POST',
+							body: JSON.stringify({ categoryId: cat.id, subcategoryId: prodSubId || null })
+						});
+					}
+				} catch (err) {
+					failed.push(id);
+					lastMessage = err instanceof Error ? err.message : 'Could not add item.';
+				}
+			}
+
+			const okCount = total - failed.length;
+			picked = failed;
+			await Promise.all([loadDetails(cat), loadPool()]);
+			attaching = false;
+
+			if (okCount > 0) {
+				const label =
+					kind === 'sub'
+						? 'subcategor' + (okCount === 1 ? 'y' : 'ies')
+						: okCount === 1
+							? 'product'
+							: 'products';
+				notify('success', `${okCount} ${label} added.`);
+			}
+			if (failed.length > 0) {
+				attachError = `${failed.length} could not be added. ${lastMessage}`;
+			} else {
+				addModal = null;
+			}
+		}
+
+		async function addSubcategory(e: SubmitEvent) {
+			e.preventDefault();
+			const cat = selected;
+			if (!cat) return;
+			subError = '';
+			if (!subName.trim()) {
+				subError = 'Enter a subcategory name.';
+				return;
+			}
+			addingSub = true;
+			try {
+				const created = await api<Subcategory>(SUBS_API, {
+					method: 'POST',
+					body: JSON.stringify({ categoryId: cat.id, name: subName, description: subDesc })
+				});
+				if (selectedId === cat.id) subs = [created, ...subs];
+				subName = '';
+				subDesc = '';
+				addModal = null;
+				notify('success', 'Subcategory added.');
+			} catch (err) {
+				subError = err instanceof Error ? err.message : 'Could not add subcategory.';
+			} finally {
+				addingSub = false;
+			}
+		}
+
+		async function addProduct(e: SubmitEvent) {
+			e.preventDefault();
+			const cat = selected;
+			if (!cat) return;
+			prodError = '';
+			if (!prodName.trim()) {
+				prodError = 'Enter a product name.';
+				return;
+			}
+			if (!validPrice(prodPrice)) {
+				prodError = 'Enter a valid price (0 or more).';
+				return;
+			}
+			addingProd = true;
+			try {
+				const created = await api<Product>(PRODUCTS_API, {
+					method: 'POST',
+					body: JSON.stringify({
+						categoryId: cat.id,
+						subcategoryId: prodSubId || null,
+						name: prodName,
+						price: prodPrice,
+						description: prodDesc
+					})
+				});
+				if (selectedId === cat.id) prods = [created, ...prods];
+				prodName = '';
+				prodPrice = '';
+				prodDesc = '';
+				addModal = null;
+				notify('success', 'Product added.');
+			} catch (err) {
+				prodError = err instanceof Error ? err.message : 'Could not add product.';
+			} finally {
+				addingProd = false;
+			}
+		}
+
+		async function loadDetails(c: Category) {
+			detailsLoading = true;
+			detailsError = '';
+			subs = [];
+			prods = [];
+			try {
+				const [nextSubs, nextProds] = await Promise.all([
+					api<Subcategory[]>(`${SUBS_API}?categoryId=${encodeURIComponent(c.id)}`),
+					api<Product[]>(`${PRODUCTS_API}?categoryId=${encodeURIComponent(c.id)}`)
+				]);
+				if (selectedId !== c.id) return;
+				subs = nextSubs;
+				prods = nextProds;
+				if (filter !== 'all' && filter !== NONE && !nextSubs.some((s) => s.id === filter)) {
+					filter = 'all';
+				}
+			} catch (err) {
+				if (selectedId !== c.id) return;
+				detailsError = err instanceof Error ? err.message : 'Could not load details.';
+			} finally {
+				if (selectedId === c.id) detailsLoading = false;
+			}
+		}
+
+		async function loadPool() {
+			poolLoading = true;
+			try {
+				const [s, p] = await Promise.all([api<Subcategory[]>(SUBS_API), api<Product[]>(PRODUCTS_API)]);
+				allSubs = s;
+				allProds = p;
+			} catch (err) {
+				attachError = err instanceof Error ? err.message : 'Could not load existing items.';
+			} finally {
+				poolLoading = false;
+			}
+		}
+
+		function openNewCategory() {
+			name = '';
+			description = '';
+			formError = '';
+			newCatOpen = true;
+		}
+
+		async function removeSub(id: Id) {
+			deletingSubId = id;
+			try {
+				await api(`${SUBS_API}/${id}`, { method: 'DELETE' });
+				subs = subs.filter((s) => s.id !== id);
+				if (filter === id) filter = 'all';
+				if (prodSubId === id) prodSubId = '';
+				notify('success', 'Subcategory deleted.');
+			} catch (err) {
+				notify('error', err instanceof Error ? err.message : 'Could not delete subcategory.');
+			} finally {
+				deletingSubId = null;
+				confirmingSubId = null;
+			}
+		}
+
+		async function removeProd(id: Id) {
+			deletingProdId = id;
+			try {
+				await api(`${PRODUCTS_API}/${id}`, { method: 'DELETE' });
+				prods = prods.filter((p) => p.id !== id);
+				notify('success', 'Product deleted.');
+			} catch (err) {
+				notify('error', err instanceof Error ? err.message : 'Could not delete product.');
+			} finally {
+				deletingProdId = null;
+				confirmingProdId = null;
+			}
+		}
+
+		async function removeCategory(id: Id) {
+			deletingId = id;
+			try {
+				await api(`${API}/${id}`, { method: 'DELETE' });
+				const rest = categories.filter((c) => c.id !== id);
+				categories = rest;
+				if (selectedId === id) {
+					clearSelection();
+					if (rest.length > 0) selectCategory(rest[0], false);
+				}
+				notify('success', 'Category deleted.');
+			} catch (err) {
+				notify('error', err instanceof Error ? err.message : 'Could not delete category.');
+			} finally {
+				deletingId = null;
+				confirmingId = null;
+			}
+		}
+
+		async function saveSub(e: SubmitEvent) {
+			e.preventDefault();
+			if (!editingSub) return;
+			if (!editSubName.trim()) {
+				editSubError = 'Enter a subcategory name.';
+				return;
+			}
+			savingSub = true;
+			editSubError = '';
+			try {
+				const updated = await api<Subcategory>(`${SUBS_API}/${editingSub.id}`, {
+					method: 'PATCH',
+					body: JSON.stringify({ name: editSubName, description: editSubDesc })
+				});
+				subs = subs.map((s) => (s.id === updated.id ? { ...s, ...updated } : s));
+				editingSub = null;
+				notify('success', 'Subcategory saved.');
+			} catch (err) {
+				editSubError = err instanceof Error ? err.message : 'Could not save changes.';
+			} finally {
+				savingSub = false;
+			}
+		}
+
+		async function saveProd(e: SubmitEvent) {
+			e.preventDefault();
+			if (!editingProd) return;
+			if (!editProdName.trim()) {
+				editProdError = 'Enter a product name.';
+				return;
+			}
+			if (!validPrice(editProdPrice)) {
+				editProdError = 'Enter a valid price (0 or more).';
+				return;
+			}
+			savingProd = true;
+			editProdError = '';
+			try {
+				const updated = await api<Product>(`${PRODUCTS_API}/${editingProd.id}`, {
+					method: 'PATCH',
+					body: JSON.stringify({
+						subcategoryId: editProdSubId || null,
+						name: editProdName,
+						price: editProdPrice,
+						description: editProdDesc
+					})
+				});
+				prods = prods.map((p) => (p.id === updated.id ? { ...p, ...updated } : p));
+				editingProd = null;
+				notify('success', 'Product saved.');
+			} catch (err) {
+				editProdError = err instanceof Error ? err.message : 'Could not save changes.';
+			} finally {
+				savingProd = false;
+			}
+		}
+
+		async function saveEdit(e: SubmitEvent) {
+			e.preventDefault();
+			if (!editing) return;
+			if (!editName.trim()) {
+				editError = 'Enter a category name.';
+				return;
+			}
+			saving = true;
+			editError = '';
+			try {
+				const updated = await api<Category>(`${API}/${editing.id}`, {
+					method: 'PATCH',
+					body: JSON.stringify({ name: editName, description: editDescription })
+				});
+				categories = categories.map((c) => (c.id === updated.id ? { ...c, ...updated } : c));
+				editing = null;
+				notify('success', 'Changes saved.');
+			} catch (err) {
+				editError = err instanceof Error ? err.message : 'Could not save changes.';
+			} finally {
+				saving = false;
+			}
+		}
+
+		async function toggleActive(c: Category) {
+			if (togglingId !== null) return;
+			const previous = c.isActive !== false;
+			const next = !previous;
+			togglingId = c.id;
+
+			categories = categories.map((x) => (x.id === c.id ? { ...x, isActive: next } : x));
+
+			try {
+				await api<Category>(`${API}/${c.id}`, {
+					method: 'PATCH',
+					body: JSON.stringify({ isActive: next })
+				});
+				notify('success', next ? 'Category is now visible in the store.' : 'Category hidden from the store.');
+			} catch (err) {
+				categories = categories.map((x) => (x.id === c.id ? { ...x, isActive: previous } : x));
+				notify('error', err instanceof Error ? err.message : 'Could not update status.');
+			} finally {
+				togglingId = null;
+			}
+		}
+
+	//#endregion
 
 	onMount(async () => {
 		try {
@@ -168,470 +611,7 @@
 			loading = false;
 		}
 	});
-
-	// =====================================================
-	// details
-	// =====================================================
-	async function loadDetails(c: Category) {
-		detailsLoading = true;
-		detailsError = '';
-		subs = [];
-		prods = [];
-		try {
-			const [nextSubs, nextProds] = await Promise.all([
-				api<Subcategory[]>(`${SUBS_API}?categoryId=${encodeURIComponent(c.id)}`),
-				api<Product[]>(`${PRODUCTS_API}?categoryId=${encodeURIComponent(c.id)}`)
-			]);
-			if (selectedId !== c.id) return;
-			subs = nextSubs;
-			prods = nextProds;
-			if (filter !== 'all' && filter !== NONE && !nextSubs.some((s) => s.id === filter)) {
-				filter = 'all';
-			}
-		} catch (err) {
-			if (selectedId !== c.id) return;
-			detailsError = err instanceof Error ? err.message : 'Could not load details.';
-		} finally {
-			if (selectedId === c.id) detailsLoading = false;
-		}
-	}
-
-	async function loadPool() {
-		poolLoading = true;
-		try {
-			const [s, p] = await Promise.all([api<Subcategory[]>(SUBS_API), api<Product[]>(PRODUCTS_API)]);
-			allSubs = s;
-			allProds = p;
-		} catch (err) {
-			attachError = err instanceof Error ? err.message : 'Could not load existing items.';
-		} finally {
-			poolLoading = false;
-		}
-	}
-
-	function resetAddForms() {
-		addModal = null;
-		addTab = 'existing';
-		pickSearch = '';
-		picked = [];
-		attachError = '';
-		subName = '';
-		subDesc = '';
-		subError = '';
-		prodSubId = '';
-		prodName = '';
-		prodPrice = '';
-		prodDesc = '';
-		prodError = '';
-		confirmingSubId = null;
-		confirmingProdId = null;
-	}
-
-	function selectCategory(c: Category, scroll = true) {
-		if (selectedId === c.id) return;
-		selectedId = c.id;
-		filter = 'all';
-		confirmingId = null;
-		resetAddForms();
-		loadDetails(c);
-		if (scroll && typeof window !== 'undefined' && window.innerWidth < 1024) {
-			setTimeout(() => panelEl?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
-		}
-	}
-
-	function clearSelection() {
-		selectedId = null;
-		filter = 'all';
-		subs = [];
-		prods = [];
-		detailsError = '';
-		resetAddForms();
-	}
-
-	// =====================================================
-	// "+ Add" modal
-	// =====================================================
-	function openAdd(kind: 'sub' | 'product') {
-		addModal = kind;
-		addTab = 'existing';
-		pickSearch = '';
-		picked = [];
-		attachError = '';
-		subError = '';
-		prodError = '';
-		if (kind === 'product') prodSubId = selectedSub ? selectedSub.id : '';
-		loadPool();
-	}
-
-	function closeAdd() {
-		if (attaching || addingSub || addingProd) return;
-		addModal = null;
-	}
-
-	function togglePick(id: Id) {
-		picked = picked.includes(id) ? picked.filter((x) => x !== id) : [...picked, id];
-		attachError = '';
-	}
-
-	async function attachSelected() {
-		const cat = selected;
-		const kind = addModal;
-		if (!cat || !kind) return;
-		if (picked.length === 0) {
-			attachError = kind === 'sub' ? 'Select at least one subcategory.' : 'Select at least one product.';
-			return;
-		}
-
-		attaching = true;
-		attachError = '';
-		const total = picked.length;
-		const failed: Id[] = [];
-		let lastMessage = '';
-
-		for (const id of picked) {
-			try {
-				if (kind === 'sub') {
-					await api(`${SUBS_API}/${id}/move`, {
-						method: 'POST',
-						body: JSON.stringify({ categoryId: cat.id })
-					});
-				} else {
-					await api(`${PRODUCTS_API}/${id}/assign`, {
-						method: 'POST',
-						body: JSON.stringify({ categoryId: cat.id, subcategoryId: prodSubId || null })
-					});
-				}
-			} catch (err) {
-				failed.push(id);
-				lastMessage = err instanceof Error ? err.message : 'Could not add item.';
-			}
-		}
-
-		const okCount = total - failed.length;
-		picked = failed;
-		await Promise.all([loadDetails(cat), loadPool()]);
-		attaching = false;
-
-		if (okCount > 0) {
-			const label =
-				kind === 'sub'
-					? 'subcategor' + (okCount === 1 ? 'y' : 'ies')
-					: okCount === 1
-						? 'product'
-						: 'products';
-			notify('success', `${okCount} ${label} added.`);
-		}
-		if (failed.length > 0) {
-			attachError = `${failed.length} could not be added. ${lastMessage}`;
-		} else {
-			addModal = null;
-		}
-	}
-
-	// =====================================================
-	// subcategories
-	// =====================================================
-	async function addSubcategory(e: SubmitEvent) {
-		e.preventDefault();
-		const cat = selected;
-		if (!cat) return;
-		subError = '';
-		if (!subName.trim()) {
-			subError = 'Enter a subcategory name.';
-			return;
-		}
-		addingSub = true;
-		try {
-			const created = await api<Subcategory>(SUBS_API, {
-				method: 'POST',
-				body: JSON.stringify({ categoryId: cat.id, name: subName, description: subDesc })
-			});
-			if (selectedId === cat.id) subs = [created, ...subs];
-			subName = '';
-			subDesc = '';
-			addModal = null;
-			notify('success', 'Subcategory added.');
-		} catch (err) {
-			subError = err instanceof Error ? err.message : 'Could not add subcategory.';
-		} finally {
-			addingSub = false;
-		}
-	}
-
-	function openEditSub(s: Subcategory) {
-		editingSub = s;
-		editSubName = s.name;
-		editSubDesc = s.description ?? '';
-		editSubError = '';
-	}
-
-	function closeEditSub() {
-		if (savingSub) return;
-		editingSub = null;
-	}
-
-	async function saveSub(e: SubmitEvent) {
-		e.preventDefault();
-		if (!editingSub) return;
-		if (!editSubName.trim()) {
-			editSubError = 'Enter a subcategory name.';
-			return;
-		}
-		savingSub = true;
-		editSubError = '';
-		try {
-			const updated = await api<Subcategory>(`${SUBS_API}/${editingSub.id}`, {
-				method: 'PATCH',
-				body: JSON.stringify({ name: editSubName, description: editSubDesc })
-			});
-			subs = subs.map((s) => (s.id === updated.id ? { ...s, ...updated } : s));
-			editingSub = null;
-			notify('success', 'Subcategory saved.');
-		} catch (err) {
-			editSubError = err instanceof Error ? err.message : 'Could not save changes.';
-		} finally {
-			savingSub = false;
-		}
-	}
-
-	async function removeSub(id: Id) {
-		deletingSubId = id;
-		try {
-			await api(`${SUBS_API}/${id}`, { method: 'DELETE' });
-			subs = subs.filter((s) => s.id !== id);
-			if (filter === id) filter = 'all';
-			if (prodSubId === id) prodSubId = '';
-			notify('success', 'Subcategory deleted.');
-		} catch (err) {
-			notify('error', err instanceof Error ? err.message : 'Could not delete subcategory.');
-		} finally {
-			deletingSubId = null;
-			confirmingSubId = null;
-		}
-	}
-
-	// =====================================================
-	// products
-	// =====================================================
-	async function addProduct(e: SubmitEvent) {
-		e.preventDefault();
-		const cat = selected;
-		if (!cat) return;
-		prodError = '';
-		if (!prodName.trim()) {
-			prodError = 'Enter a product name.';
-			return;
-		}
-		if (!validPrice(prodPrice)) {
-			prodError = 'Enter a valid price (0 or more).';
-			return;
-		}
-		addingProd = true;
-		try {
-			const created = await api<Product>(PRODUCTS_API, {
-				method: 'POST',
-				body: JSON.stringify({
-					categoryId: cat.id,
-					subcategoryId: prodSubId || null,
-					name: prodName,
-					price: prodPrice,
-					description: prodDesc
-				})
-			});
-			if (selectedId === cat.id) prods = [created, ...prods];
-			prodName = '';
-			prodPrice = '';
-			prodDesc = '';
-			addModal = null;
-			notify('success', 'Product added.');
-		} catch (err) {
-			prodError = err instanceof Error ? err.message : 'Could not add product.';
-		} finally {
-			addingProd = false;
-		}
-	}
-
-	function openEditProd(p: Product) {
-		editingProd = p;
-		editProdSubId = p.subcategoryId ?? '';
-		editProdName = p.name;
-		editProdPrice = String(p.price);
-		editProdDesc = p.description ?? '';
-		editProdError = '';
-	}
-
-	function closeEditProd() {
-		if (savingProd) return;
-		editingProd = null;
-	}
-
-	async function saveProd(e: SubmitEvent) {
-		e.preventDefault();
-		if (!editingProd) return;
-		if (!editProdName.trim()) {
-			editProdError = 'Enter a product name.';
-			return;
-		}
-		if (!validPrice(editProdPrice)) {
-			editProdError = 'Enter a valid price (0 or more).';
-			return;
-		}
-		savingProd = true;
-		editProdError = '';
-		try {
-			const updated = await api<Product>(`${PRODUCTS_API}/${editingProd.id}`, {
-				method: 'PATCH',
-				body: JSON.stringify({
-					subcategoryId: editProdSubId || null,
-					name: editProdName,
-					price: editProdPrice,
-					description: editProdDesc
-				})
-			});
-			prods = prods.map((p) => (p.id === updated.id ? { ...p, ...updated } : p));
-			editingProd = null;
-			notify('success', 'Product saved.');
-		} catch (err) {
-			editProdError = err instanceof Error ? err.message : 'Could not save changes.';
-		} finally {
-			savingProd = false;
-		}
-	}
-
-	async function removeProd(id: Id) {
-		deletingProdId = id;
-		try {
-			await api(`${PRODUCTS_API}/${id}`, { method: 'DELETE' });
-			prods = prods.filter((p) => p.id !== id);
-			notify('success', 'Product deleted.');
-		} catch (err) {
-			notify('error', err instanceof Error ? err.message : 'Could not delete product.');
-		} finally {
-			deletingProdId = null;
-			confirmingProdId = null;
-		}
-	}
-
-	// =====================================================
-	// categories CRUD
-	// =====================================================
-	function openNewCategory() {
-		name = '';
-		description = '';
-		formError = '';
-		newCatOpen = true;
-	}
-
-	function closeNewCategory() {
-		if (adding) return;
-		newCatOpen = false;
-	}
-
-	async function addCategory(e: SubmitEvent) {
-		e.preventDefault();
-		formError = '';
-		if (!name.trim()) {
-			formError = 'Enter a category name.';
-			return;
-		}
-		adding = true;
-		try {
-			const created = await api<Category>(API, {
-				method: 'POST',
-				body: JSON.stringify({ name, description })
-			});
-			categories = [created, ...categories];
-			name = '';
-			description = '';
-			newCatOpen = false;
-			notify('success', 'Category added.');
-			selectCategory(created);
-		} catch (err) {
-			formError = err instanceof Error ? err.message : 'Could not add category.';
-		} finally {
-			adding = false;
-		}
-	}
-
-	function openEdit(c: Category) {
-		editing = c;
-		editName = c.name;
-		editDescription = c.description ?? '';
-		editError = '';
-	}
-
-	function closeEdit() {
-		if (saving) return;
-		editing = null;
-	}
-
-	async function saveEdit(e: SubmitEvent) {
-		e.preventDefault();
-		if (!editing) return;
-		if (!editName.trim()) {
-			editError = 'Enter a category name.';
-			return;
-		}
-		saving = true;
-		editError = '';
-		try {
-			const updated = await api<Category>(`${API}/${editing.id}`, {
-				method: 'PATCH',
-				body: JSON.stringify({ name: editName, description: editDescription })
-			});
-			categories = categories.map((c) => (c.id === updated.id ? { ...c, ...updated } : c));
-			editing = null;
-			notify('success', 'Changes saved.');
-		} catch (err) {
-			editError = err instanceof Error ? err.message : 'Could not save changes.';
-		} finally {
-			saving = false;
-		}
-	}
-
-	async function toggleActive(c: Category) {
-		if (togglingId !== null) return;
-		const previous = c.isActive !== false;
-		const next = !previous;
-		togglingId = c.id;
-
-		categories = categories.map((x) => (x.id === c.id ? { ...x, isActive: next } : x));
-
-		try {
-			await api<Category>(`${API}/${c.id}`, {
-				method: 'PATCH',
-				body: JSON.stringify({ isActive: next })
-			});
-			notify('success', next ? 'Category is now visible in the store.' : 'Category hidden from the store.');
-		} catch (err) {
-			categories = categories.map((x) => (x.id === c.id ? { ...x, isActive: previous } : x));
-			notify('error', err instanceof Error ? err.message : 'Could not update status.');
-		} finally {
-			togglingId = null;
-		}
-	}
-
-	async function removeCategory(id: Id) {
-		deletingId = id;
-		try {
-			await api(`${API}/${id}`, { method: 'DELETE' });
-			const rest = categories.filter((c) => c.id !== id);
-			categories = rest;
-			if (selectedId === id) {
-				clearSelection();
-				if (rest.length > 0) selectCategory(rest[0], false);
-			}
-			notify('success', 'Category deleted.');
-		} catch (err) {
-			notify('error', err instanceof Error ? err.message : 'Could not delete category.');
-		} finally {
-			deletingId = null;
-			confirmingId = null;
-		}
-	}
-
-	const inputClass =
-		'w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-emerald-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/20 disabled:bg-gray-50 disabled:text-gray-400';
+	
 	const primaryBtn =
 		'inline-flex items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-60';
 	const ghostBtn =
@@ -642,47 +622,10 @@
 		'rounded-md p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500';
 </script>
 
-<svelte:window
-	onkeydown={(e) => {
-		if (e.key === 'Escape') {
-			closeAdd();
-			closeNewCategory();
-			closeEdit();
-			closeEditSub();
-			closeEditProd();
-		}
-	}}
-/>
+<svelte:window onkeydown={(e) => { if (e.key === 'Escape') { closeAdd(); closeNewCategory(); closeEdit(); closeEditSub(); closeEditProd();}}}/>
 
-<!-- Icons -->
-{#snippet iconPlus()}
-	<svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-		<path d="M10 4a1 1 0 0 1 1 1v4h4a1 1 0 1 1 0 2h-4v4a1 1 0 1 1-2 0v-4H5a1 1 0 1 1 0-2h4V5a1 1 0 0 1 1-1Z" />
-	</svg>
-{/snippet}
-{#snippet iconEdit()}
-	<svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-		<path d="M13.6 2.6a2 2 0 0 1 2.8 2.8l-.9.9-2.8-2.8.9-.9ZM11.3 4.9 3 13.2V16h2.8l8.3-8.3-2.8-2.8Z" />
-	</svg>
-{/snippet}
-{#snippet iconTrash()}
-	<svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-		<path fill-rule="evenodd" d="M8 2a1 1 0 0 0-1 1v1H4a1 1 0 0 0 0 2h.1l.8 9.1A2 2 0 0 0 6.9 17h6.2a2 2 0 0 0 2-1.9l.8-9.1H16a1 1 0 1 0 0-2h-3V3a1 1 0 0 0-1-1H8Zm1 2V4h2v0H9Z" clip-rule="evenodd" />
-	</svg>
-{/snippet}
-{#snippet iconClose()}
-	<svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-		<path d="M5.3 5.3a1 1 0 0 1 1.4 0L10 8.6l3.3-3.3a1 1 0 1 1 1.4 1.4L11.4 10l3.3 3.3a1 1 0 0 1-1.4 1.4L10 11.4l-3.3 3.3a1 1 0 0 1-1.4-1.4L8.6 10 5.3 6.7a1 1 0 0 1 0-1.4Z" />
-	</svg>
-{/snippet}
-{#snippet iconSearch()}
-	<svg class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-		<path fill-rule="evenodd" d="M9 3a6 6 0 1 0 3.6 10.8l3.3 3.3a1 1 0 0 0 1.4-1.4l-3.3-3.3A6 6 0 0 0 9 3Zm-4 6a4 4 0 1 1 8 0 4 4 0 0 1-8 0Z" clip-rule="evenodd" />
-	</svg>
-{/snippet}
-{#snippet spinner()}
-	<span class="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white"></span>
-{/snippet}
+
+
 
 <!-- Product rows -->
 {#snippet productList(items: Product[])}
@@ -733,7 +676,7 @@
 						</button>
 					{:else}
 						<button type="button" onclick={() => openEditProd(p)} aria-label="Edit {p.name}" class={iconBtn}>
-							{@render iconEdit()}
+							<PenOutline class="shrink-0 h-4 w-4" />
 						</button>
 						<button
 							type="button"
@@ -741,7 +684,7 @@
 							aria-label="Delete {p.name}"
 							class="{iconBtn} hover:bg-red-50 hover:text-red-600"
 						>
-							{@render iconTrash()}
+							<TrashBinOutline class="shrink-0 h-4 w-4" />
 						</button>
 					{/if}
 				</div>
@@ -762,15 +705,14 @@
 				</p>
 			</div>
 			<button type="button" onclick={openNewCategory} class={outlineBtn}>
-				{@render iconPlus()}
+				<PlusOutline class="shrink-0 h-4 w-4" />
 				New
 			</button>
 		</div>
 
 		<div class="relative mt-4">
-			{@render iconSearch()}
 			<input
-				class="{inputClass} pl-9"
+				class="input-field pl-20"
 				type="search"
 				placeholder="Search categories"
 				aria-label="Search categories"
@@ -885,7 +827,7 @@
 						</button>
 					{:else}
 						<button type="button" onclick={() => openEdit(selected)} aria-label="Edit category" title="Edit category" class={iconBtn}>
-							{@render iconEdit()}
+							<PenOutline class="shrink-0 h-4 w-4" />
 						</button>
 						<button
 							type="button"
@@ -894,7 +836,7 @@
 							title="Delete category"
 							class="{iconBtn} hover:bg-red-50 hover:text-red-600"
 						>
-							{@render iconTrash()}
+							<TrashBinOutline class="shrink-0 h-4 w-4" />
 						</button>
 					{/if}
 				</div>
@@ -968,11 +910,11 @@
 
 					<div class="flex items-center gap-2">
 						<button type="button" onclick={() => openAdd('sub')} class={outlineBtn}>
-							{@render iconPlus()}
+							<PlusOutline class="shrink-0 h-4 w-4" />
 							Subcategory
 						</button>
 						<button type="button" onclick={() => openAdd('product')} class={primaryBtn}>
-							{@render iconPlus()}
+							<PlusOutline class="shrink-0 h-4 w-4" />
 							Product
 						</button>
 					</div>
@@ -1005,7 +947,7 @@
 								</button>
 							{:else}
 								<button type="button" onclick={() => openEditSub(selectedSub)} aria-label="Edit subcategory" class={iconBtn}>
-									{@render iconEdit()}
+									<PenOutline class="shrink-0 h-4 w-4" />
 								</button>
 								<button
 									type="button"
@@ -1013,7 +955,7 @@
 									aria-label="Delete subcategory"
 									class="{iconBtn} hover:bg-red-50 hover:text-red-600"
 								>
-									{@render iconTrash()}
+									<TrashBinOutline class="shrink-0 h-4 w-4" />
 								</button>
 							{/if}
 						</div>
@@ -1031,7 +973,7 @@
 								Add an existing product or create a new one for {selected.name}.
 							</p>
 							<button type="button" onclick={() => openAdd('product')} class="{primaryBtn} mt-4">
-								{@render iconPlus()}
+								<PlusOutline class="shrink-0 h-4 w-4" />
 								Add product
 							</button>
 						</div>
@@ -1063,7 +1005,7 @@
 					</label>
 					<input
 						id="cat-name"
-						class={inputClass}
+						class="input-field"
 						type="text"
 						maxlength="80"
 						placeholder="e.g. Injectables"
@@ -1078,7 +1020,7 @@
 					</div>
 					<textarea
 						id="cat-desc"
-						class="{inputClass} resize-none"
+						class="input-field resize-none"
 						rows="3"
 						maxlength="200"
 						placeholder="Optional. What kind of products belong here?"
@@ -1094,7 +1036,7 @@
 					<button type="button" onclick={closeNewCategory} class={ghostBtn}>Cancel</button>
 					<button type="submit" disabled={adding} class={primaryBtn}>
 						{#if adding}
-							{@render spinner()}
+							<Spinner />
 							Adding…
 						{:else}
 							Create category
@@ -1120,7 +1062,7 @@
 					{addModal === 'sub' ? 'Add subcategories' : 'Add products'} to {selected.name}
 				</h2>
 				<button type="button" onclick={closeAdd} aria-label="Close" class={iconBtn}>
-					{@render iconClose()}
+					<CloseOutline class="shrink-0 h-4 w-4" />
 				</button>
 			</div>
 
@@ -1148,9 +1090,9 @@
 			{#if addTab === 'existing'}
 				<div class="mt-4 space-y-4">
 					<div class="relative">
-						{@render iconSearch()}
+						
 						<input
-							class="{inputClass} pl-9"
+							class="input-field pl-9"
 							type="search"
 							placeholder={addModal === 'sub' ? 'Search subcategories' : 'Search products'}
 							aria-label="Search"
@@ -1229,7 +1171,7 @@
 							<label for="pick-prod-sub" class="mb-1.5 block text-sm font-medium text-gray-700">
 								Place in subcategory <span class="font-normal text-gray-400">(optional)</span>
 							</label>
-							<select id="pick-prod-sub" class={inputClass} bind:value={prodSubId}>
+							<select id="pick-prod-sub" class="input-field" bind:value={prodSubId}>
 								<option value="">None (directly in {selected.name})</option>
 								{#each subs as s (s.id)}
 									<option value={s.id}>{s.name}</option>
@@ -1257,7 +1199,7 @@
 						<button type="button" onclick={closeAdd} class={ghostBtn}>Cancel</button>
 						<button type="button" onclick={attachSelected} disabled={attaching} class={primaryBtn}>
 							{#if attaching}
-								{@render spinner()}
+								<Spinner />
 								Adding…
 							{:else}
 								{picked.length > 0 ? `Add ${picked.length} selected` : 'Add selected'}
@@ -1273,7 +1215,7 @@
 						</label>
 						<input
 							id="sub-name"
-							class={inputClass}
+							class="input-field"
 							type="text"
 							maxlength="80"
 							placeholder="e.g. Botulinum"
@@ -1288,7 +1230,7 @@
 						</div>
 						<textarea
 							id="sub-desc"
-							class="{inputClass} resize-none"
+							class="input-field resize-none"
 							rows="2"
 							maxlength="200"
 							placeholder="Optional."
@@ -1304,7 +1246,7 @@
 						<button type="button" onclick={closeAdd} class={ghostBtn}>Cancel</button>
 						<button type="submit" disabled={addingSub} class={primaryBtn}>
 							{#if addingSub}
-								{@render spinner()}
+								<Spinner />
 								Adding…
 							{:else}
 								Create subcategory
@@ -1319,7 +1261,7 @@
 							<label for="prod-sub" class="mb-1.5 block text-sm font-medium text-gray-700">
 								Subcategory <span class="font-normal text-gray-400">(optional)</span>
 							</label>
-							<select id="prod-sub" class={inputClass} bind:value={prodSubId}>
+							<select id="prod-sub" class="input-field"bind:value={prodSubId}>
 								<option value="">None (directly in {selected.name})</option>
 								{#each subs as s (s.id)}
 									<option value={s.id}>{s.name}</option>
@@ -1334,7 +1276,7 @@
 						</label>
 						<input
 							id="prod-name"
-							class={inputClass}
+							class="input-field"
 							type="text"
 							maxlength="120"
 							placeholder="e.g. Revolax Deep"
@@ -1350,7 +1292,7 @@
 							<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
 							<input
 								id="prod-price"
-								class="{inputClass} pl-7"
+								class="input-field pl-7"
 								type="number"
 								min="0"
 								step="0.01"
@@ -1368,7 +1310,7 @@
 						</div>
 						<textarea
 							id="prod-desc"
-							class="{inputClass} resize-none"
+							class="input-field resize-none"
 							rows="2"
 							maxlength="300"
 							placeholder="Optional."
@@ -1384,7 +1326,7 @@
 						<button type="button" onclick={closeAdd} class={ghostBtn}>Cancel</button>
 						<button type="submit" disabled={addingProd} class={primaryBtn}>
 							{#if addingProd}
-								{@render spinner()}
+								<Spinner />
 								Adding…
 							{:else}
 								Create product
@@ -1413,11 +1355,11 @@
 					<label for="edit-name" class="mb-1.5 block text-sm font-medium text-gray-700">
 						Name <span class="text-red-500">*</span>
 					</label>
-					<input id="edit-name" class={inputClass} type="text" maxlength="80" bind:value={editName} />
+					<input id="edit-name" class="input-field" type="text" maxlength="80" bind:value={editName} />
 				</div>
 				<div>
 					<label for="edit-desc" class="mb-1.5 block text-sm font-medium text-gray-700">Description</label>
-					<textarea id="edit-desc" class="{inputClass} resize-none" rows="3" maxlength="200" bind:value={editDescription}></textarea>
+					<textarea id="edit-desc" class="input-field resize-none" rows="3" maxlength="200" bind:value={editDescription}></textarea>
 				</div>
 
 				{#if editError}
@@ -1451,11 +1393,11 @@
 					<label for="edit-sub-name" class="mb-1.5 block text-sm font-medium text-gray-700">
 						Name <span class="text-red-500">*</span>
 					</label>
-					<input id="edit-sub-name" class={inputClass} type="text" maxlength="80" bind:value={editSubName} />
+					<input id="edit-sub-name" class=input-field type="text" maxlength="80" bind:value={editSubName} />
 				</div>
 				<div>
 					<label for="edit-sub-desc" class="mb-1.5 block text-sm font-medium text-gray-700">Description</label>
-					<textarea id="edit-sub-desc" class="{inputClass} resize-none" rows="3" maxlength="200" bind:value={editSubDesc}></textarea>
+					<textarea id="edit-sub-desc" class="input-field resize-none" rows="3" maxlength="200" bind:value={editSubDesc}></textarea>
 				</div>
 
 				{#if editSubError}
@@ -1490,7 +1432,7 @@
 						<label for="edit-prod-sub" class="mb-1.5 block text-sm font-medium text-gray-700">
 							Subcategory <span class="font-normal text-gray-400">(optional)</span>
 						</label>
-						<select id="edit-prod-sub" class={inputClass} bind:value={editProdSubId}>
+						<select id="edit-prod-sub" class="input-field" bind:value={editProdSubId}>
 							<option value="">None (directly in the category)</option>
 							{#each subs as s (s.id)}
 								<option value={s.id}>{s.name}</option>
@@ -1503,7 +1445,7 @@
 					<label for="edit-prod-name" class="mb-1.5 block text-sm font-medium text-gray-700">
 						Name <span class="text-red-500">*</span>
 					</label>
-					<input id="edit-prod-name" class={inputClass} type="text" maxlength="120" bind:value={editProdName} />
+					<input id="edit-prod-name" class="input-field" type="text" maxlength="120" bind:value={editProdName} />
 				</div>
 
 				<div>
@@ -1514,7 +1456,7 @@
 						<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
 						<input
 							id="edit-prod-price"
-							class="{inputClass} pl-7"
+							class="input-field pl-7"
 							type="number"
 							min="0"
 							step="0.01"
@@ -1526,7 +1468,7 @@
 
 				<div>
 					<label for="edit-prod-desc" class="mb-1.5 block text-sm font-medium text-gray-700">Description</label>
-					<textarea id="edit-prod-desc" class="{inputClass} resize-none" rows="3" maxlength="300" bind:value={editProdDesc}></textarea>
+					<textarea id="edit-prod-desc" class="input-field resize-none" rows="3" maxlength="300" bind:value={editProdDesc}></textarea>
 				</div>
 
 				{#if editProdError}

@@ -1,1 +1,30 @@
 @import 'tailwindcss';
+
+
+.input-field{
+    width: 100%;
+	border-radius: 0.5rem;
+	border: 1px solid #e5e7eb;
+	background-color: #ffffff;
+	padding: 0.625rem 0.75rem;
+	font-size: 0.875rem;
+	color: #111827;
+}
+
+.input-field::placeholder {
+	color: #9ca3af;
+}
+
+.input-field:focus {
+	border-color: #10b981;
+	outline: none;
+}
+
+.input-field:focus-visible {
+	box-shadow: 0 0 0 2px rgb(16 185 129 / 20%);
+}
+
+.input-field:disabled {
+	background-color: #f9fafb;
+	color: #9ca3af;
+}
