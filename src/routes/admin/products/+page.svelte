@@ -1,54 +1,51 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import type { Category, Subcategory, Product } from '#lib/types.ts';
-	type Id = string;
-
+	
 	const CATEGORIES_API = '/api/categories';
 	const SUBCATEGORIES_API = '/api/subcategories';
 	const API = '/api/products';
-	const NONE = '__none__'; // filter value: "No category" / "No subcategory"
+	const NONE = '__none__'; 
 
-	let categories = $state<Category[]>([]);
-	let subcategories = $state<Subcategory[]>([]);
-	let products = $state<Product[]>([]);
-	let loading = $state(true);
+	//#region Boolean Variables
+		let loading = $state(true);
+		let saving = $state(false);
+		let adding = $state(false);
+	//#endregion
 
-	// filters
-	let search = $state('');
-	let filterCategoryId = $state('');
-	let filterSubId = $state('');
+	//#region String Varibales
+		let categoryId = $state('');
+		let subcategoryId = $state('');
+		let filterCategoryId = $state('');
+		let filterSubId = $state('');
+		let search = $state('');
+		let name = $state('');
+		let description = $state('');
+	
+		let formError = $state('');
+		let editCategoryId = $state('');
+		let editSubcategoryId = $state('');
+		let editName = $state('');
+		let editDescription = $state('');
+		let editError = $state('');
+	//#endregion
 
-	// add form (a number input gives a number, or null when empty)
-	let categoryId = $state('');
-	let subcategoryId = $state('');
-	let name = $state('');
-	let price = $state<number | string | null>('');
-	let description = $state('');
-	let adding = $state(false);
-	let formError = $state('');
-
-	// edit modal
-	let editing = $state<Product | null>(null);
-	let editCategoryId = $state('');
-	let editSubcategoryId = $state('');
-	let editName = $state('');
-	let editPrice = $state<number | string | null>('');
-	let editDescription = $state('');
-	let saving = $state(false);
-	let editError = $state('');
-
-	// delete
-	let confirmingId = $state<string | null>(null);
-	let deletingId = $state<string | null>(null);
-
-	// toast
-	let toast = $state<{ type: 'success' | 'error'; text: string } | null>(null);
-	let toastTimer: ReturnType<typeof setTimeout> | undefined;
-
+	//#region Other Varianles
+		let categories = $state<Category[]>([]);
+		let subcategories = $state<Subcategory[]>([]);
+		let products = $state<Product[]>([]);
+		let price = $state<number | string | null>('');
+		let editing = $state<Product | null>(null);
+		let editPrice = $state<number | string | null>('');
+		let confirmingId = $state<string | null>(null);
+		let deletingId = $state<string | null>(null);
+		let toast = $state<{ type: 'success' | 'error'; text: string } | null>(null);
+		let toastTimer: ReturnType<typeof setTimeout> | undefined;
+	//#endregion
+	
 	const categoryNames = $derived(new Map(categories.map((c) => [c.id, c.name])));
 	const subNames = $derived(new Map(subcategories.map((s) => [s.id, s.name])));
 
-	// subcategories available for each dropdown (only those of the chosen category)
 	const formSubs = $derived(subcategories.filter((s) => s.categoryId === categoryId));
 	const editSubs = $derived(subcategories.filter((s) => s.categoryId === editCategoryId));
 	const filterSubs = $derived(subcategories.filter((s) => s.categoryId === filterCategoryId));
@@ -76,41 +73,141 @@
 		});
 	});
 
-	const money = (v: number | string) =>
-		`$${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+	const money = (v: number | string) => `$${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-	function notify(type: 'success' | 'error', text: string) {
-		toast = { type, text };
-		clearTimeout(toastTimer);
-		toastTimer = setTimeout(() => (toast = null), 3000);
-	}
-
-	async function api<T>(url: string, init?: RequestInit): Promise<T> {
-		const res = await fetch(url, {
-			headers: { 'Content-Type': 'application/json' },
-			...init
-		});
-		const body = await res.json().catch(() => null);
-		if (!res.ok || !body?.success) {
-			throw new Error(body?.message ?? 'Something went wrong. Please try again.');
+	//#region Functions
+		function notify(type: 'success' | 'error', text: string) {
+			toast = { type, text };
+			clearTimeout(toastTimer);
+			toastTimer = setTimeout(() => (toast = null), 3000);
 		}
-		return body.data as T;
-	}
 
-	function formatDate(value?: string | null) {
-		if (!value) return '—';
-		const d = new Date(value);
-		if (Number.isNaN(d.getTime())) return '—';
-		return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-	}
+		function formatDate(value?: string | null) {
+			if (!value) return '—';
+			const d = new Date(value);
+			if (Number.isNaN(d.getTime())) return '—';
+			return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+		}
 
-	// works for both numbers and strings
-	function validPrice(value: number | string | null) {
-		const s = String(value ?? '').trim();
-		if (s === '') return false;
-		const n = Number(s);
-		return Number.isFinite(n) && n >= 0;
-	}
+		function validPrice(value: number | string | null) {
+			const s = String(value ?? '').trim();
+			if (s === '') return false;
+			const n = Number(s);
+			return Number.isFinite(n) && n >= 0;
+		}
+
+		function openEdit(p: Product) {
+			editing = p;
+			editCategoryId = p.categoryId ?? '';
+			editSubcategoryId = p.subcategoryId ?? '';
+			editName = p.name;
+			editPrice = String(p.price);
+			editDescription = p.description ?? '';
+			editError = '';
+		}
+
+		function closeEdit() {
+			if (saving) return;
+			editing = null;
+		}
+	//#endregion
+
+	//#region Async Functions
+		async function api<T>(url: string, init?: RequestInit): Promise<T> {
+			const res = await fetch(url, {
+				headers: { 'Content-Type': 'application/json' },
+				...init
+			});
+			const body = await res.json().catch(() => null);
+			if (!res.ok || !body?.success) {
+				throw new Error(body?.message ?? 'Something went wrong. Please try again.');
+			}
+			return body.data as T;
+		}
+
+		async function addProduct(e: SubmitEvent) {
+			e.preventDefault();
+			formError = '';
+			if (!name.trim()) {
+				formError = 'Enter a product name.';
+				return;
+			}
+			if (!validPrice(price)) {
+				formError = 'Enter a valid price (0 or more).';
+				return;
+			}
+			adding = true;
+			try {
+				const created = await api<Product>(API, {
+					method: 'POST',
+					body: JSON.stringify({
+						categoryId: categoryId || null,
+						subcategoryId: categoryId ? subcategoryId || null : null,
+						name,
+						price,
+						description
+					})
+				});
+				products = [created, ...products]; 
+				name = '';
+				price = '';
+				description = '';
+				notify('success', 'Product added.');
+			} catch (err) {
+				formError = err instanceof Error ? err.message : 'Could not add product.';
+			} finally {
+				adding = false;
+			}
+		}
+
+		async function saveEdit(e: SubmitEvent) {
+			e.preventDefault();
+			if (!editing) return;
+			if (!editName.trim()) {
+				editError = 'Enter a product name.';
+				return;
+			}
+			if (!validPrice(editPrice)) {
+				editError = 'Enter a valid price (0 or more).';
+				return;
+			}
+			saving = true;
+			editError = '';
+			try {
+				const updated = await api<Product>(`${API}/${editing.id}`, {
+					method: 'PATCH',
+					body: JSON.stringify({
+						categoryId: editCategoryId || null,
+						subcategoryId: editCategoryId ? editSubcategoryId || null : null,
+						name: editName,
+						price: editPrice,
+						description: editDescription
+					})
+				});
+				products = products.map((p) => (p.id === updated.id ? { ...p, ...updated } : p));
+				editing = null;
+				notify('success', 'Changes saved.');
+			} catch (err) {
+				editError = err instanceof Error ? err.message : 'Could not save changes.';
+			} finally {
+				saving = false;
+			}
+		}
+
+		async function removeProduct(id: string) {
+			deletingId = id;
+			try {
+				await api(`${API}/${id}`, { method: 'DELETE' });
+				products = products.filter((p) => p.id !== id);
+				notify('success', 'Product deleted.');
+			} catch (err) {
+				notify('error', err instanceof Error ? err.message : 'Could not delete product.');
+			} finally {
+				deletingId = null;
+				confirmingId = null;
+			}
+		}
+	//#endregion
 
 	onMount(async () => {
 		try {
@@ -125,106 +222,6 @@
 			loading = false;
 		}
 	});
-
-	async function addProduct(e: SubmitEvent) {
-		e.preventDefault();
-		formError = '';
-		if (!name.trim()) {
-			formError = 'Enter a product name.';
-			return;
-		}
-		if (!validPrice(price)) {
-			formError = 'Enter a valid price (0 or more).';
-			return;
-		}
-		adding = true;
-		try {
-			const created = await api<Product>(API, {
-				method: 'POST',
-				body: JSON.stringify({
-					categoryId: categoryId || null,
-					// a subcategory only makes sense together with a category
-					subcategoryId: categoryId ? subcategoryId || null : null,
-					name,
-					price,
-					description
-				})
-			});
-			products = [created, ...products]; // newest first
-			// keep category/subcategory selected so several products can be added in a row
-			name = '';
-			price = '';
-			description = '';
-			notify('success', 'Product added.');
-		} catch (err) {
-			formError = err instanceof Error ? err.message : 'Could not add product.';
-		} finally {
-			adding = false;
-		}
-	}
-
-	function openEdit(p: Product) {
-		editing = p;
-		editCategoryId = p.categoryId ?? '';
-		editSubcategoryId = p.subcategoryId ?? '';
-		editName = p.name;
-		editPrice = String(p.price);
-		editDescription = p.description ?? '';
-		editError = '';
-	}
-
-	function closeEdit() {
-		if (saving) return;
-		editing = null;
-	}
-
-	async function saveEdit(e: SubmitEvent) {
-		e.preventDefault();
-		if (!editing) return;
-		if (!editName.trim()) {
-			editError = 'Enter a product name.';
-			return;
-		}
-		if (!validPrice(editPrice)) {
-			editError = 'Enter a valid price (0 or more).';
-			return;
-		}
-		saving = true;
-		editError = '';
-		try {
-			const updated = await api<Product>(`${API}/${editing.id}`, {
-				method: 'PATCH',
-				body: JSON.stringify({
-					categoryId: editCategoryId || null,
-					subcategoryId: editCategoryId ? editSubcategoryId || null : null,
-					name: editName,
-					price: editPrice,
-					description: editDescription
-				})
-			});
-			products = products.map((p) => (p.id === updated.id ? { ...p, ...updated } : p));
-			editing = null;
-			notify('success', 'Changes saved.');
-		} catch (err) {
-			editError = err instanceof Error ? err.message : 'Could not save changes.';
-		} finally {
-			saving = false;
-		}
-	}
-
-	async function removeProduct(id: string) {
-		deletingId = id;
-		try {
-			await api(`${API}/${id}`, { method: 'DELETE' });
-			products = products.filter((p) => p.id !== id);
-			notify('success', 'Product deleted.');
-		} catch (err) {
-			notify('error', err instanceof Error ? err.message : 'Could not delete product.');
-		} finally {
-			deletingId = null;
-			confirmingId = null;
-		}
-	}
 
 	const inputClass =
 		'w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 disabled:bg-gray-50 disabled:text-gray-400';
