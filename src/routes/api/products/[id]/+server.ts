@@ -2,7 +2,7 @@ import type { RequestHandler } from './$types';
 import { eq } from 'drizzle-orm';
 import { db } from '#lib/db/index.ts';
 import { products } from '#lib/db/schema.ts';
-import { asObject, cleanText, isUuid, parsePrice, pgCode } from '#lib/validate.ts';
+import { asObject, cleanText, isUuid, parsePrice, parseQuantity, parseImageUrl, pgCode } from '#lib/validate.ts';
 
 export const GET: RequestHandler = async ({ params }) => {
 	try {
@@ -53,7 +53,26 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 			values.price = price;
 		}
 
-		// subcategoryId: undefined = not sent, null = clear it, string = set it
+		if ('quantity' in payload) {
+			const quantity =
+				payload.quantity === null || payload.quantity === '' ? 0 : parseQuantity(payload.quantity);
+			if (quantity === null) {
+				return Response.json(
+					{ success: false, message: 'Stock must be a whole number (0 or more).' },
+					{ status: 400 }
+				);
+			}
+			values.quantity = quantity;
+		}
+
+		if ('imageUrl' in payload) {
+			const imageUrl = parseImageUrl(payload.imageUrl);
+			if (imageUrl === undefined) {
+				return Response.json({ success: false, message: 'Invalid image URL.' }, { status: 400 });
+			}
+			values.imageUrl = imageUrl;
+		}
+
 		let subcategoryId: string | null | undefined;
 		if ('subcategoryId' in payload) {
 			if (payload.subcategoryId !== null && !isUuid(payload.subcategoryId)) {

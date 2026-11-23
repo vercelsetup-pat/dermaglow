@@ -2,12 +2,9 @@ import type { RequestHandler } from './$types';
 import { and, asc, eq } from 'drizzle-orm';
 import { db } from '#lib/db/index.ts';
 import { products } from '#lib/db/schema.ts';
-import { asObject, cleanText, isUuid, parsePrice, pgCode } from '#lib/validate.ts';
+import { asObject, cleanText, isUuid, parsePrice, parseQuantity, parseImageUrl, pgCode } from '#lib/validate.ts';
 
-// GET /api/products                          -> all
-// GET /api/products?categoryId=<uuid>        -> every product of the category
-//                                               (direct ones AND those in its subcategories)
-// GET /api/products?subcategoryId=<uuid>     -> products of one subcategory
+
 export const GET: RequestHandler = async ({ url }) => {
 	try {
 		const categoryId = url.searchParams.get('categoryId');
@@ -74,6 +71,22 @@ export const POST: RequestHandler = async ({ request }) => {
 			);
 		}
 
+		const quantity =
+			payload.quantity === undefined || payload.quantity === null || payload.quantity === ''
+				? 0
+				: parseQuantity(payload.quantity);
+		if (quantity === null) {
+			return Response.json(
+				{ success: false, message: 'Stock must be a whole number (0 or more).' },
+				{ status: 400 }
+			);
+		}
+
+		const imageUrl = parseImageUrl(payload.imageUrl ?? null);
+		if (imageUrl === undefined) {
+			return Response.json({ success: false, message: 'Invalid image URL.' }, { status: 400 });
+		}
+
 		const [created] = await db
 			.insert(products)
 			.values({
@@ -81,7 +94,9 @@ export const POST: RequestHandler = async ({ request }) => {
 				subcategoryId: rawSub as string | null,
 				name,
 				description: cleanText(payload.description),
-				price
+				price,
+				quantity,
+				imageUrl
 			})
 			.returning();
 
@@ -99,7 +114,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		}
 		if (code === '23514') {
 			return Response.json(
-				{ success: false, message: 'A product with a subcategory must also have a category.' },
+				{ success: false, message: 'Some values are not allowed (check price, stock, and category/subcategory).' },
 				{ status: 400 }
 			);
 		}

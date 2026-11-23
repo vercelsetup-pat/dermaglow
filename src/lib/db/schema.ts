@@ -34,7 +34,7 @@ export const products = pgTable('products', {
     name: varchar('name', { length: 255 }).notNull(),
     description: text('description'),
     price: numeric('price', { precision: 10, scale: 2 }).notNull(),
-    image: text('image'),                                 // new: image URL, nullable
+    imageUrl: text('image_url'),                                 // new: image URL, nullable
     quantity: integer('quantity').notNull().default(0),   // new: stock count
     createdAt: timestamp('created_at').defaultNow().notNull()
   },
