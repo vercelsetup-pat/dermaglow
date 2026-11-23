@@ -41,6 +41,7 @@ export interface Product {
 	name: string;
 	description: string | null;
 	price: string | number;
-	imageUrl?: string | null;
+	quantity: number;
+	imageUrl: string | null;
 	createdAt?: string | null;
 }

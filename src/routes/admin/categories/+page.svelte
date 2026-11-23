@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import type { Category, Subcategory, Product } from '#lib/types.ts';
 	import { PlusOutline, PenOutline, TrashBinOutline, CloseOutline } from "flowbite-svelte-icons";
-	import { Spinner, Toggle } from "flowbite-svelte";
+	import { Spinner, Toggle, Button, ButtonToggle } from "flowbite-svelte";
 	
 	type Id = string;
 	const API = '/api/categories';
@@ -612,12 +612,6 @@
 		}
 	});
 	
-	
-
-	const ghostBtn =
-		'rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100';
-	const outlineBtn =
-		'inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500';
 	const iconBtn =
 		'rounded-md p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500';
 </script>
@@ -656,21 +650,23 @@
 
 				<div class="flex w-24 shrink-0 items-center justify-end gap-0.5">
 					{#if confirmingProdId === p.id}
-						<button
+						<Button
 							type="button"
 							disabled={deletingProdId === p.id}
 							onclick={() => removeProd(p.id)}
-							class="rounded-md bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60"
+							color = "red"
+							class="rounded-md px-2 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60"
 						>
 							{deletingProdId === p.id ? '…' : 'Delete'}
-						</button>
-						<button
+						</Button>
+						<Button
 							type="button"
 							onclick={() => (confirmingProdId = null)}
-							class="rounded-md px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100"
+							color="light"
+							class="rounded-md px-2 py-1 text-xs font-medium"
 						>
 							No
-						</button>
+						</Button>
 					{:else}
 						<button type="button" onclick={() => openEditProd(p)} aria-label="Edit {p.name}" class={iconBtn}>
 							<PenOutline class="shrink-0 h-4 w-4" />
@@ -701,10 +697,10 @@
 					{categories.length} total · {categories.filter((c) => c.isActive !== false).length} visible
 				</p>
 			</div>
-			<button type="button" onclick={openNewCategory} class={outlineBtn}>
+			<Button type="button" onclick={openNewCategory} color="light">
 				<PlusOutline class="shrink-0 h-4 w-4" />
 				New
-			</button>
+			</Button>
 		</div>
 
 		<div class="relative mt-4">
@@ -793,21 +789,23 @@
 						
 					{#if confirmingId === selected.id}
 						<span class="text-xs text-gray-500">Delete this category?</span>
-						<button
+						<Button
 							type="button"
 							disabled={deletingId === selected.id}
 							onclick={() => removeCategory(selected.id)}
-							class="rounded-md bg-red-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60"
+							color="red"
+							class="rounded-md px-2.5 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60"
 						>
 							{deletingId === selected.id ? 'Deleting…' : 'Delete'}
-						</button>
-						<button
+						</Button>
+						<Button
 							type="button"
 							onclick={() => (confirmingId = null)}
-							class="rounded-md px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100"
+							color="light"
+							class="rounded-md px-2.5 py-1 text-xs font-medium text-gray-600"
 						>
 							Cancel
-						</button>
+						</Button>
 					{:else}
 						<button type="button" onclick={() => openEdit(selected)} aria-label="Edit category" title="Edit category" class={iconBtn}>
 							<PenOutline class="shrink-0 h-4 w-4" />
@@ -892,14 +890,14 @@
 					</div>
 
 					<div class="flex items-center gap-2">
-						<button type="button" onclick={() => openAdd('sub')} class={outlineBtn}>
+						<Button type="button" onclick={() => openAdd('sub')} color="light">
 							<PlusOutline class="shrink-0 h-4 w-4" />
 							Subcategory
-						</button>
-						<button type="button" onclick={() => openAdd('product')} class="btn-primary">
+						</Button>
+						<Button type="button" onclick={() => openAdd('product')} class="btn-primary">
 							<PlusOutline class="shrink-0 h-4 w-4" />
 							Product
-						</button>
+						</Button>
 					</div>
 				</div>
 
@@ -955,10 +953,10 @@
 							<p class="mt-1 text-sm text-gray-500">
 								Add an existing product or create a new one for {selected.name}.
 							</p>
-							<button type="button" onclick={() => openAdd('product')} class="btn-primary mt-4">
+							<Button type="button" onclick={() => openAdd('product')} class="btn-secondary mt-4">
 								<PlusOutline class="shrink-0 h-4 w-4" />
 								Add product
-							</button>
+							</Button>
 						</div>
 					{:else}
 						{@render productList(visibleProducts)}
@@ -1016,15 +1014,15 @@
 				{/if}
 
 				<div class="flex justify-end gap-2 pt-1">
-					<button type="button" onclick={closeNewCategory} class={ghostBtn}>Cancel</button>
-					<button type="submit" disabled={adding} class="btn-primary">
+					<Button type="button" onclick={closeNewCategory} color="light">Cancel</Button>
+					<Button type="submit" disabled={adding} class="btn-primary">
 						{#if adding}
 							<Spinner />
 							Adding…
 						{:else}
 							Create category
 						{/if}
-					</button>
+					</Button>
 				</div>
 			</form>
 		</div>
@@ -1179,15 +1177,15 @@
 					{/if}
 
 					<div class="flex justify-end gap-2 pt-1">
-						<button type="button" onclick={closeAdd} class={ghostBtn}>Cancel</button>
-						<button type="button" onclick={attachSelected} disabled={attaching} class="btn-primary">
+						<Button type="button" onclick={closeAdd} color="light">Cancel</Button>
+						<Button type="button" onclick={attachSelected} disabled={attaching} class="btn-secondary">
 							{#if attaching}
 								<Spinner />
 								Adding…
 							{:else}
 								{picked.length > 0 ? `Add ${picked.length} selected` : 'Add selected'}
 							{/if}
-						</button>
+						</Button>
 					</div>
 				</div>
 			{:else if addModal === 'sub'}
@@ -1226,15 +1224,15 @@
 					{/if}
 
 					<div class="flex justify-end gap-2 pt-1">
-						<button type="button" onclick={closeAdd} class={ghostBtn}>Cancel</button>
-						<button type="submit" disabled={addingSub} class="btn-primary">
+						<Button type="button" onclick={closeAdd} color="light">Cancel</Button>
+						<Button type="submit" disabled={addingSub} class="btn-secondary">
 							{#if addingSub}
 								<Spinner />
 								Adding…
 							{:else}
 								Create subcategory
 							{/if}
-						</button>
+						</Button>
 					</div>
 				</form>
 			{:else}
@@ -1306,15 +1304,15 @@
 					{/if}
 
 					<div class="flex justify-end gap-2 pt-1">
-						<button type="button" onclick={closeAdd} class={ghostBtn}>Cancel</button>
-						<button type="submit" disabled={addingProd} class="btn-primary">
+						<Button type="button" onclick={closeAdd} color="light">Cancel</Button>
+						<Button type="submit" disabled={addingProd} class="btn-primary">
 							{#if addingProd}
 								<Spinner />
 								Adding…
 							{:else}
 								Create product
 							{/if}
-						</button>
+						</Button>
 					</div>
 				</form>
 			{/if}
@@ -1350,10 +1348,10 @@
 				{/if}
 
 				<div class="flex justify-end gap-2 pt-1">
-					<button type="button" onclick={closeEdit} class={ghostBtn}>Cancel</button>
-					<button type="submit" disabled={saving} class="btn-primary">
+					<Button type="button" onclick={closeEdit} color="light">Cancel</Button>
+					<Button type="submit" disabled={saving} class="btn-primary">
 						{saving ? 'Saving…' : 'Save changes'}
-					</button>
+					</Button>
 				</div>
 			</form>
 		</div>
@@ -1388,10 +1386,10 @@
 				{/if}
 
 				<div class="flex justify-end gap-2 pt-1">
-					<button type="button" onclick={closeEditSub} class={ghostBtn}>Cancel</button>
-					<button type="submit" disabled={savingSub} class="btn-primary">
+					<Button type="button" onclick={closeEditSub} color="light">Cancel</Button>
+					<Button type="submit" disabled={savingSub} class="btn-primary">
 						{savingSub ? 'Saving…' : 'Save changes'}
-					</button>
+					</Button>
 				</div>
 			</form>
 		</div>
@@ -1459,7 +1457,7 @@
 				{/if}
 
 				<div class="flex justify-end gap-2 pt-1">
-					<button type="button" onclick={closeEditProd} class={ghostBtn}>Cancel</button>
+					<Button type="button" onclick={closeEditProd} color="light">Cancel</Button>
 					<button type="submit" disabled={savingProd} class="btn-primary">
 						{savingProd ? 'Saving…' : 'Save changes'}
 					</button>
