@@ -16,8 +16,8 @@
         CloseOutline,
 		ArrowDownToBracketOutline
     } from 'flowbite-svelte-icons';
- 	import { Dropdown, DropdownItem, Button } from 'flowbite-svelte';
-	type SortKey = 'name' | 'price' | 'category' | 'quantity' | 'createdAt';
+ 	import { Dropdown, DropdownItem, Button, Toggle} from 'flowbite-svelte';
+	type SortKey = 'name' |'description' | 'price' | 'category' | 'subcategory' |'quantity' | 'status';
 
 	type Column = {
 		key: SortKey;
@@ -28,9 +28,12 @@
 	// To add a header, add one line here (and its <td> in the body)
 	const columns: Column[] = [
 		{ key: 'name', label: 'Product Name', sortable: true },
+		{ key: 'description', label: 'Description', sortable: true },
 		{ key: 'price', label: 'Price', sortable: true },
 		{ key: 'category', label: 'Category', sortable: true },
-		{ key: 'quantity', label: 'Quantity', sortable: true }
+		{ key: 'subcategory', label: 'Sub Category', sortable: true },
+		{ key: 'quantity', label: 'Quantity', sortable: true },
+		{ key: 'status', label: 'Status', sortable: true }
 	];
 
 	
@@ -276,7 +279,7 @@
 
 	let selected = $state<string[]>([]);
 	let sortDir = $state<'asc' | 'desc'>('desc');
-	let sortKey = $state<SortKey>('createdAt');
+	let sortKey = $state<SortKey>('name');
 
 	function sortBy(key: SortKey) {
 		if (sortKey === key) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
@@ -516,7 +519,7 @@
                                         </div>
                                     </div>
                                 </td>
-
+								<td class="px-4 py-3 font-medium text-gray-700">{p.description}</td>
                                 <!-- PRICE -->
                                 <td class="px-4 py-3 font-medium text-gray-700">{money(p.price)}</td>
 
@@ -532,70 +535,42 @@
                                     {/if}
                                 </td>
 
+								<!-- SUB CATEGORY -->
+								<td class="px-4 py-3">
+									{#if p.subcategoryId}
+										<p class="text-gray-700">{subName(p.subcategoryId)}</p>
+									{:else}
+										<span class="text-xs text-gray-400">—</span>
+									{/if}
+								</td>
+								
                                 <!-- QUANTITY -->
                                 <td class="px-4 py-3">
                                     <span class="font-medium text-gray-700">{p.quantity}</span>
                                 </td>
 
+								<td class="px-4 py-3">active</td>
+
                                 <!-- ACTIONS -->
                                 <td class="px-4 py-3 text-right">
-                                    {#if confirmingId === p.id}
-                                        <div class="inline-flex items-center justify-end gap-1">
-                                            <button
-                                                type="button"
-                                                disabled={deletingId === p.id}
-                                                onclick={() => removeProduct(p.id)}
-                                                class="rounded-md bg-red-600 px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-red-700 disabled:opacity-60"
-                                            >
-                                                {deletingId === p.id
-                                                    ? 'Deleting...'
-                                                    : 'Delete'}
-                                            </button>
+									<div class="inline-flex items-center justify-end gap-1">
+										<button
+											type="button"
+											aria-label="Edit {p.name}"
+											class="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-[#0278BD]"
+										>
+											<EditOutline class="h-5 w-5" />
+										</button>
 
-                                            <button
-                                                type="button"
-                                                onclick={() => confirmingId = null}
-                                                class="rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-100"
-                                            >
-                                                Cancel
-                                            </button>
-                                        </div>
-                                    {:else}
-                                        <button
-                                            id="menu-{p.id}"
-                                            type="button"
-                                            aria-label="Actions for {p.name}"
-                                            class="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
-                                        >
-                                            <DotsVerticalOutline class="h-5 w-5" />
-                                        </button>
-
-                                        <Dropdown
-                                            triggeredBy="#menu-{p.id}"
-                                            placement="bottom-end"
-                                            class="w-36"
-                                        >
-
-                                            <DropdownItem
-                                                class="flex items-center gap-2"
-                                                onclick={() => openEdit(p)}
-                                            >
-                                                <EditOutline class="h-4 w-4" />
-                                                Edit
-                                            </DropdownItem>
-
-                                            <DropdownItem
-                                                class="flex items-center gap-2 text-red-600"
-                                                onclick={() => confirmingId = p.id}
-                                            >
-                                                <TrashBinOutline class="h-4 w-4" />
-                                                Delete
-                                            </DropdownItem>
-
-                                        </Dropdown>
-
-                                    {/if}
-                                </td>
+										<button
+											type="button"
+											aria-label="Delete {p.name}"
+											class="rounded-lg p-1.5 text-gray-400 transition hover:bg-red-50 hover:text-red-600"
+										>
+											<TrashBinOutline class="h-5 w-5" />
+										</button>
+									</div>
+								</td>
                             </tr>
                         {/each}
                     {/if}
