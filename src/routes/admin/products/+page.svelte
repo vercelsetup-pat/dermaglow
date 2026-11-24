@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import type { Category, Subcategory, Product } from '#lib/types.ts';
-	 import {
+	import {
         PlusOutline,
         TrashBinOutline,
         LayersOutline,
@@ -326,14 +326,14 @@
 
 <div class="page-content space-y-4">
 	<!--Header-->
-	<div class="flex items-center justify-between gap-4 pb-6 border-b border-gray-200">
+	<div class="header-page">
 		<div class="flex items-center gap-3">
-			<div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-700">
+			<div class="header-icon">
 				<LayersOutline class="h-9 w-9" color="#0278BD"/>
 			</div>
 			<div>
-				<h1 class="text-2xl font-semibold leading-tight text-[var(--color-primary)]">Products</h1>
-				<p class="text-sm text-gray-500">Manage and collaborate on your products listing</p>
+				<h1 class="heading-1">Products</h1>
+				<p class="heading-3">Manage and collaborate on your products listing</p>
 			</div>
 		</div>
 
@@ -344,8 +344,7 @@
 	</div>
 
 	<!--Card-->
-	<div class="grid grid-cols-1 overflow-hidden rounded-xl border border-gray-200 bg-white sm:grid-cols-2 xl:grid-cols-4">
-
+	<div class="card">
         <!-- Total Products -->
         <div class="flex items-center justify-between border-b border-gray-100 p-5 transition hover:bg-gray-50/50 sm:border-r xl:border-b-0">
             <div>
@@ -507,7 +506,7 @@
                                 <!-- PRODUCT NAME -->
                                 <td class="px-4 py-3">
                                     <div class="flex items-center gap-3">
-                                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-xs font-semibold text-gray-600">
+                                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-600 text-xs font-semibold text-gray-600">
                                             {initials(p.name)}
                                         </div>
 
