@@ -36,7 +36,7 @@
     .admin-layout {
         display: flex;
         min-height: 100vh;
-        background: #f5f7fa;
+        background: #ffffff;
         color: #202632;
     }
 

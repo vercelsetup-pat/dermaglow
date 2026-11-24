@@ -137,7 +137,8 @@
         height: 100vh;
         position: sticky;
         top: 0;
-        background: #ffffff;
+        background: #f5f7fa;
+      /*  background: #ffffff;*/
         border-right: 1px solid #edf0f4;
         display: flex;
         flex-direction: column;

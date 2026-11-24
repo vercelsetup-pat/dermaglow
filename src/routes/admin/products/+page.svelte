@@ -1,7 +1,42 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import type { Category, Subcategory, Product } from '#lib/types.ts';
+	 import {
+        PlusOutline,
+        TrashBinOutline,
+        LayersOutline,
+        CheckCircleOutline,
+        ExclamationCircleOutline,
+        CloseCircleOutline,
+        DotsVerticalOutline,
+        EditOutline,
+        SearchOutline,
+        ChevronDownOutline,
+        FilterOutline,
+        CloseOutline,
+		ArrowDownToBracketOutline
+    } from 'flowbite-svelte-icons';
+ 	import { Dropdown, DropdownItem, Button } from 'flowbite-svelte';
+	type SortKey = 'name' | 'price' | 'category' | 'quantity' | 'createdAt';
+
+	type Column = {
+		key: SortKey;
+		label: string;
+		sortable?: boolean;
+	};
+
+	// To add a header, add one line here (and its <td> in the body)
+	const columns: Column[] = [
+		{ key: 'name', label: 'Product Name', sortable: true },
+		{ key: 'price', label: 'Price', sortable: true },
+		{ key: 'category', label: 'Category', sortable: true },
+		{ key: 'quantity', label: 'Quantity', sortable: true }
+	];
+
 	
+	// +1 checkbox column, +1 actions column
+	const colSpan = $derived(columns.length + 2);
+
 	const CATEGORIES_API = '/api/categories';
 	const SUBCATEGORIES_API = '/api/subcategories';
 	const API = '/api/products';
@@ -11,6 +46,8 @@
 		let loading = $state(true);
 		let saving = $state(false);
 		let adding = $state(false);
+		let showAddModal = $state(false);
+    	let showFilters = $state(false);
 	//#endregion
 
 	//#region String Varibales
@@ -49,6 +86,20 @@
 	const formSubs = $derived(subcategories.filter((s) => s.categoryId === categoryId));
 	const editSubs = $derived(subcategories.filter((s) => s.categoryId === editCategoryId));
 	const filterSubs = $derived(subcategories.filter((s) => s.categoryId === filterCategoryId));
+	const totalProducts = $derived(products.length);
+	const inStock = $derived(
+        products.filter((p) => Number(p.quantity) > 5).length
+    );
+
+	const lowStock = $derived(
+        products.filter(
+            (p) => Number(p.quantity) > 0 && Number(p.quantity) <= 5
+        ).length
+    );
+
+    const outOfStock = $derived(
+        products.filter((p) => Number(p.quantity) <= 0).length
+    );
 
 	const catName = (id: string | null) => (id ? (categoryNames.get(id) ?? 'Unknown category') : '');
 	const subName = (id: string | null) => (id ? (subNames.get(id) ?? 'Unknown subcategory') : '');
@@ -223,382 +274,352 @@
 		}
 	});
 
-	const inputClass =
-		'w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 disabled:bg-gray-50 disabled:text-gray-400';
+	let selected = $state<string[]>([]);
+	let sortDir = $state<'asc' | 'desc'>('desc');
+	let sortKey = $state<SortKey>('createdAt');
+
+	function sortBy(key: SortKey) {
+		if (sortKey === key) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+		else {
+			sortKey = key;
+			sortDir = 'asc';
+		}
+	}
+
+	const sorted = $derived.by(() => {
+		const dir = sortDir === 'asc' ? 1 : -1;
+		return [...filtered].sort((a, b) => {
+			switch (sortKey) {
+				case 'name': return a.name.localeCompare(b.name) * dir;
+				case 'price': return (Number(a.price) - Number(b.price)) * dir;
+				case 'category': return catName(a.categoryId).localeCompare(catName(b.categoryId)) * dir;
+				default: return (new Date(a.createdAt ?? 0).getTime() - new Date(b.createdAt ?? 0).getTime()) * dir;
+			}
+		});
+	});
+
+	const allSelected = $derived(sorted.length > 0 && sorted.every((p) => selected.includes(p.id)));
+	function toggleAll() {
+		selected = allSelected ? [] : sorted.map((p) => p.id);
+	}
+
+
+	function clearFilters() {
+        filterCategoryId = '';
+        filterSubId = '';
+        search = '';
+    }
+
+    const hasActiveFilters = $derived(
+        !!filterCategoryId ||
+        !!filterSubId ||
+        !!search.trim()
+    );
+	const initials = (n: string) => n.trim().slice(0, 2).toUpperCase();
+	
 </script>
 
 <svelte:window onkeydown={(e) => e.key === 'Escape' && closeEdit()} />
 
-<div class="space-y-6">
-	<div class="grid items-start gap-6 lg:grid-cols-[22rem_1fr]">
-		<!-- Add product -->
-		<section class="rounded-xl border border-gray-200 bg-white p-5 lg:sticky lg:top-6">
-			<h2 class="text-base font-semibold text-gray-900">New product</h2>
-			<p class="mt-0.5 text-sm text-gray-500">Category and subcategory are optional.</p>
-
-			<form class="mt-5 space-y-4" onsubmit={addProduct}>
-				<div>
-					<label for="prod-category" class="mb-1.5 block text-sm font-medium text-gray-700">
-						Category <span class="font-normal text-gray-400">(optional)</span>
-					</label>
-					<select
-						id="prod-category"
-						class={inputClass}
-						bind:value={categoryId}
-						onchange={() => (subcategoryId = '')}
-						disabled={loading}
-					>
-						<option value="">{loading ? 'Loading…' : 'No category'}</option>
-						{#each categories as c (c.id)}
-							<option value={c.id}>{c.name}{c.isActive === false ? ' (inactive)' : ''}</option>
-						{/each}
-					</select>
-				</div>
-
-				<!-- only shown when the chosen category has subcategories -->
-				{#if categoryId && formSubs.length > 0}
-					<div>
-						<label for="prod-sub" class="mb-1.5 block text-sm font-medium text-gray-700">
-							Subcategory <span class="font-normal text-gray-400">(optional)</span>
-						</label>
-						<select id="prod-sub" class={inputClass} bind:value={subcategoryId}>
-							<option value="">None (directly in the category)</option>
-							{#each formSubs as s (s.id)}
-								<option value={s.id}>{s.name}</option>
-							{/each}
-						</select>
-					</div>
-				{/if}
-
-				<div>
-					<label for="prod-name" class="mb-1.5 block text-sm font-medium text-gray-700">
-						Name <span class="text-red-500">*</span>
-					</label>
-					<input
-						id="prod-name"
-						class={inputClass}
-						type="text"
-						maxlength="120"
-						placeholder="e.g. Botox 100U"
-						bind:value={name}
-					/>
-				</div>
-
-				<div>
-					<label for="prod-price" class="mb-1.5 block text-sm font-medium text-gray-700">
-						Price <span class="text-red-500">*</span>
-					</label>
-					<div class="relative">
-						<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
-						<input
-							id="prod-price"
-							class="{inputClass} pl-7"
-							type="number"
-							min="0"
-							step="0.01"
-							inputmode="decimal"
-							placeholder="0.00"
-							bind:value={price}
-						/>
-					</div>
-				</div>
-
-				<div>
-					<div class="mb-1.5 flex items-center justify-between">
-						<label for="prod-desc" class="text-sm font-medium text-gray-700">Description</label>
-						<span class="text-xs text-gray-400">{description.length}/300</span>
-					</div>
-					<textarea
-						id="prod-desc"
-						class="{inputClass} resize-none"
-						rows="3"
-						maxlength="300"
-						placeholder="Optional. Details about the product."
-						bind:value={description}
-					></textarea>
-				</div>
-
-				{#if formError}
-					<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{formError}</p>
-				{/if}
-
-				<button
-					type="submit"
-					disabled={adding || loading}
-					class="flex w-full items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-60"
-				>
-					{#if adding}
-						<span class="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white"></span>
-						Adding…
-					{:else}
-						<svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-							<path d="M10 4a1 1 0 0 1 1 1v4h4a1 1 0 1 1 0 2h-4v4a1 1 0 1 1-2 0v-4H5a1 1 0 1 1 0-2h4V5a1 1 0 0 1 1-1Z" />
-						</svg>
-						Add product
-					{/if}
-				</button>
-			</form>
-		</section>
-
-		<!-- Products -->
-		<section class="rounded-xl border border-gray-200 bg-white p-5">
-			<div class="flex flex-wrap items-center justify-between gap-3">
-				<div>
-					<h2 class="text-base font-semibold text-gray-900">All products</h2>
-					<p class="mt-0.5 text-sm text-gray-500">
-						{products.length}
-						{products.length === 1 ? 'product' : 'products'}
-						{#if filterCategoryId || filterSubId || search.trim()}
-							· {filtered.length} shown
-						{/if}
-					</p>
-				</div>
+<div class="page-content space-y-4">
+	<!--Header-->
+	<div class="flex items-center justify-between gap-4 pb-6 border-b border-gray-200">
+		<div class="flex items-center gap-3">
+			<div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-700">
+				<LayersOutline class="h-9 w-9" color="#0278BD"/>
 			</div>
-
-			<!-- filters -->
-			<div class="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-				<select
-					class={inputClass}
-					aria-label="Filter by category"
-					bind:value={filterCategoryId}
-					onchange={() => (filterSubId = '')}
-				>
-					<option value="">All categories</option>
-					<option value={NONE}>No category</option>
-					{#each categories as c (c.id)}
-						<option value={c.id}>{c.name}</option>
-					{/each}
-				</select>
-
-				<!-- only shown when the filtered category has subcategories -->
-				{#if filterCategoryId && filterCategoryId !== NONE && filterSubs.length > 0}
-					<select class={inputClass} aria-label="Filter by subcategory" bind:value={filterSubId}>
-						<option value="">All subcategories</option>
-						<option value={NONE}>No subcategory</option>
-						{#each filterSubs as s (s.id)}
-							<option value={s.id}>{s.name}</option>
-						{/each}
-					</select>
-				{/if}
-
-				<div class="relative">
-					<svg class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-						<path fill-rule="evenodd" d="M9 3a6 6 0 1 0 3.6 10.8l3.3 3.3a1 1 0 0 0 1.4-1.4l-3.3-3.3A6 6 0 0 0 9 3Zm-4 6a4 4 0 1 1 8 0 4 4 0 0 1-8 0Z" clip-rule="evenodd" />
-					</svg>
-					<input
-						class="{inputClass} pl-9"
-						type="search"
-						placeholder="Search products"
-						aria-label="Search products"
-						bind:value={search}
-					/>
-				</div>
+			<div>
+				<h1 class="text-2xl font-semibold leading-tight text-[var(--color-primary)]">Products</h1>
+				<p class="text-sm text-gray-500">Manage and collaborate on your products listing</p>
 			</div>
+		</div>
 
-			<div class="mt-5 border-t border-gray-100 pt-5">
-				{#if loading}
-					<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-						{#each [1, 2, 3, 4, 5, 6] as n (n)}
-							<div class="h-44 animate-pulse rounded-xl bg-gray-100"></div>
-						{/each}
-					</div>
-				{:else if filtered.length === 0}
-					<div class="rounded-xl border border-dashed border-gray-300 px-5 py-14 text-center text-sm text-gray-500">
-						{#if products.length === 0}
-							No products yet. Add your first one using the form.
-						{:else}
-							No products match your filters.
-						{/if}
-					</div>
-				{:else}
-					<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-						{#each filtered as p (p.id)}
-							<article class="flex flex-col rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:shadow-sm">
-								<!-- name + price -->
-								<div class="flex items-start justify-between gap-3">
-									<h3 class="min-w-0 truncate text-base font-semibold text-gray-900" title={p.name}>{p.name}</h3>
-									<span class="shrink-0 text-sm font-semibold text-emerald-700">{money(p.price)}</span>
-								</div>
-
-								<!-- description -->
-								<div class="mt-2 flex-1">
-									{#if p.description}
-										<p class="line-clamp-2 text-sm text-gray-600" title={p.description}>{p.description}</p>
-									{:else}
-										<p class="text-sm text-gray-400">No description</p>
-									{/if}
-								</div>
-
-								<!-- placement -->
-								<div class="mt-4 flex flex-wrap items-center gap-1.5 text-xs">
-									{#if p.categoryId}
-										<span class="max-w-full truncate rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700" title={catName(p.categoryId)}>
-											{catName(p.categoryId)}
-										</span>
-										{#if p.subcategoryId}
-											<span class="max-w-full truncate rounded-full bg-gray-100 px-2 py-0.5 font-medium text-gray-600" title={subName(p.subcategoryId)}>
-												{subName(p.subcategoryId)}
-											</span>
-										{/if}
-									{:else}
-										<span class="rounded-full bg-gray-100 px-2 py-0.5 font-medium text-gray-500">No category</span>
-									{/if}
-									<span class="text-gray-400">·</span>
-									<span class="text-gray-500">{formatDate(p.createdAt)}</span>
-								</div>
-
-								<!-- actions -->
-								<div class="mt-4 flex items-center justify-end gap-1 border-t border-gray-100 pt-3">
-									{#if confirmingId === p.id}
-										<span class="mr-auto text-xs text-gray-500">Delete this product?</span>
-										<button
-											type="button"
-											disabled={deletingId === p.id}
-											onclick={() => removeProduct(p.id)}
-											class="rounded-md bg-red-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60"
-										>
-											{deletingId === p.id ? 'Deleting…' : 'Delete'}
-										</button>
-										<button
-											type="button"
-											onclick={() => (confirmingId = null)}
-											class="rounded-md px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100"
-										>
-											Cancel
-										</button>
-									{:else}
-										<button
-											type="button"
-											onclick={() => openEdit(p)}
-											class="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-										>
-											<svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-												<path d="M13.6 2.6a2 2 0 0 1 2.8 2.8l-.9.9-2.8-2.8.9-.9ZM11.3 4.9 3 13.2V16h2.8l8.3-8.3-2.8-2.8Z" />
-											</svg>
-											Edit
-										</button>
-										<button
-											type="button"
-											onclick={() => (confirmingId = p.id)}
-											class="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-red-50 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
-										>
-											<svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-												<path fill-rule="evenodd" d="M8 2a1 1 0 0 0-1 1v1H4a1 1 0 0 0 0 2h.1l.8 9.1A2 2 0 0 0 6.9 17h6.2a2 2 0 0 0 2-1.9l.8-9.1H16a1 1 0 1 0 0-2h-3V3a1 1 0 0 0-1-1H8Zm1 2V4h2v0H9Z" clip-rule="evenodd" />
-											</svg>
-											Delete
-										</button>
-									{/if}
-								</div>
-							</article>
-						{/each}
-					</div>
-				{/if}
-			</div>
-		</section>
+		<Button class="btn-secondary flex items-center gap-2">
+			<PlusOutline class="h-4 w-4" />
+			Add Product
+		</Button>
 	</div>
+
+	<!--Card-->
+	<div class="grid grid-cols-1 overflow-hidden rounded-xl border border-gray-200 bg-white sm:grid-cols-2 xl:grid-cols-4">
+
+        <!-- Total Products -->
+        <div class="flex items-center justify-between border-b border-gray-100 p-5 transition hover:bg-gray-50/50 sm:border-r xl:border-b-0">
+            <div>
+                <p class="text-xs font-medium text-gray-500">Total Products</p>
+                <p class="mt-2 text-2xl font-semibold tracking-tight text-gray-900">{totalProducts.toLocaleString()}</p>
+                <p class="mt-1.5 text-xs text-gray-400">All items in your store</p>
+            </div>
+            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-green-50 text-green-600">
+                <LayersOutline class="h-6 w-6" />
+            </div>
+        </div>
+
+        <!-- In Stock -->
+        <div class="flex items-center justify-between border-b border-gray-100 p-5 transition hover:bg-gray-50/50 xl:border-b-0 xl:border-r">
+            <div>
+                <p class="text-xs font-medium text-gray-500">In Stock</p>
+                <p class="mt-2 text-2xl font-semibold tracking-tight text-gray-900">{inStock.toLocaleString()}</p>
+                <p class="mt-1.5 text-xs text-gray-400">More than 5 available</p>
+            </div>
+            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-green-50 text-green-600">
+                <CheckCircleOutline class="h-6 w-6" />
+            </div>
+        </div>
+
+        <!-- Low Stock -->
+        <div class="flex items-center justify-between border-b border-gray-100 p-5 transition hover:bg-gray-50/50 sm:border-r xl:border-b-0">
+            <div>
+                <p class="text-xs font-medium text-gray-500">Low Stock</p>
+                <p class="mt-2 text-2xl font-semibold tracking-tight text-gray-900">{lowStock.toLocaleString()}</p>
+                <p class="mt-1.5 text-xs text-gray-400">5 or fewer available</p>
+            </div>
+            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                <ExclamationCircleOutline class="h-6 w-6" />
+            </div>
+        </div>
+
+        <!-- Out of Stock -->
+        <div class="flex items-center justify-between p-5 transition hover:bg-gray-50/50">
+            <div>
+                <p class="text-xs font-medium text-gray-500">Out of Stock</p>
+                <p class="mt-2 text-2xl font-semibold tracking-tight text-gray-900">{outOfStock.toLocaleString()}</p>
+                <p class="mt-1.5 text-xs text-gray-400">Needs restocking</p>
+            </div>
+
+            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600">
+                <CloseCircleOutline class="h-6 w-6" />
+            </div>
+        </div>
+    </div>
+
+	<!--Table-->
+	<section>
+        <!-- TOOLBAR -->
+        <div class="flex flex-wrap items-center justify-between gap-3 pb-4">
+            <div class="relative w-full sm:w-72"> 
+                <SearchOutline class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <input
+                    type="search"
+                    placeholder="Search products..."
+                    aria-label="Search products"
+                    bind:value={search}
+                    class="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-[#0278BD] focus:ring-2 focus:ring-[#0278BD]/10"
+                />
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+                {#if hasActiveFilters}
+                    <button type="button" onclick={clearFilters} class="rounded-lg px-3 py-2 text-xs font-medium text-gray-500 transition hover:bg-gray-100 hover:text-gray-800">
+                        Clear filters
+                    </button>
+                {/if}
+
+				<Button type="button" onclick={() => showFilters = !showFilters} color="light" class="inline-flex items-center gap-2 px-3 py-2 text-sm">
+                    <ArrowDownToBracketOutline  class="h-4 w-4" />
+                    Export
+                </Button>
+
+				 <Button type="button" onclick={() => showFilters = !showFilters} color="light" class="inline-flex items-center gap-2 px-3 py-2 text-sm">
+                    <FilterOutline class="h-4 w-4" />
+                    Filter
+                    {#if hasActiveFilters}
+                        <span class="h-1.5 w-1.5 rounded-full bg-[#0278BD]"></span>
+                    {/if}
+				</Button>
+            </div>
+        </div>
+
+        <!-- TABLE -->
+        <div class="overflow-x-auto border-t border-gray-100">
+            <table class="w-full min-w-[760px] text-left text-sm">
+                <!-- TABLE HEADER -->
+                <thead class="bg-gray-50/70 text-xs font-medium text-gray-500">
+					<tr class="border-b border-gray-100">
+						<th class="w-12 px-4 py-3">
+							<input
+								type="checkbox"
+								checked={allSelected}
+								onchange={toggleAll}
+								class="h-4 w-4 rounded border-gray-300 text-[#0278BD] focus:ring-[#0278BD]/30"
+								aria-label="Select all products"
+							/>
+						</th>
+
+						{#each columns as col (col.key)}
+							<th class="px-4 py-3">
+								{#if col.sortable}
+									<button type="button" onclick={() => sortBy(col.key)} class="inline-flex items-center gap-1.5 transition hover:text-gray-900 {sortKey === col.key ? 'text-gray-900' : ''}">
+										{col.label}
+										<ChevronDownOutline class="h-3.5 w-3.5 transition {sortKey === col.key ? 'text-[#0278BD]' : ''} {sortKey === col.key && sortDir === 'asc' ? 'rotate-180' : ''}"/>
+									</button>
+								{:else}
+									{col.label}
+								{/if}
+							</th>
+						{/each}
+						<th class="px-4 py-3 text-right">Actions</th>
+					</tr>
+				</thead>
+                <!-- TABLE BODY -->
+                <tbody class="divide-y divide-gray-100">
+                    {#if loading}
+                        {#each [1, 2, 3, 4, 5] as n (n)}
+                            <tr>
+                                <td colspan="6" class="px-4 py-3">
+                                    <div class="h-9 animate-pulse rounded-lg bg-gray-100"></div>
+                                </td>
+                            </tr>
+                        {/each}
+                    {:else if sorted.length === 0}
+                        <tr>
+                            <td colspan="6" class="px-5 py-16 text-center">
+                                <div class="mx-auto flex max-w-sm flex-col items-center">
+                                    <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100 text-gray-400">
+                                        <SearchOutline class="h-6 w-6" />
+                                    </div>
+                                    <p class="text-sm font-medium text-gray-700">
+                                        {products.length === 0 ? 'No products yet' : 'No products found'}
+                                    </p>
+                                    <p class="mt-1 text-xs text-gray-400">
+                                        {products.length === 0 ? 'Add your first product to get started.' : 'Try changing your search or filters.'}
+                                    </p>
+                                </div>
+                            </td>
+                        </tr>
+                    {:else}
+                        {#each sorted as p (p.id)}
+                            <tr class="border-b border-gray-100 transition-colors hover:bg-gray-50/70 {selected.includes(p.id) ? 'bg-sky-50/50' : ''}">
+                                <!-- CHECKBOX -->
+                                <td class="px-4 py-3">
+                                    <input
+                                        type="checkbox"
+                                        value={p.id}
+                                        bind:group={selected}
+                                        class="h-4 w-4 rounded border-gray-300 text-[#0278BD] focus:ring-[#0278BD]/30"
+                                        aria-label="Select {p.name}"
+                                    />
+                                </td>
+
+                                <!-- PRODUCT NAME -->
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center gap-3">
+                                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-xs font-semibold text-gray-600">
+                                            {initials(p.name)}
+                                        </div>
+
+                                        <div class="min-w-0">
+                                            <p class="max-w-[240px] truncate font-medium text-gray-800" title={p.name}>{p.name}</p>
+                                            {#if p.description}
+                                                <p class="max-w-[240px] truncate text-xs text-gray-400" title={p.description}>{p.description}</p>
+                                            {/if}
+                                        </div>
+                                    </div>
+                                </td>
+
+                                <!-- PRICE -->
+                                <td class="px-4 py-3 font-medium text-gray-700">{money(p.price)}</td>
+
+                                <!-- CATEGORY -->
+                                <td class="px-4 py-3">
+                                    {#if p.categoryId}
+                                        <p class="text-gray-700">{catName(p.categoryId)}</p>
+                                        {#if p.subcategoryId}
+                                            <p class="mt-0.5 text-xs text-gray-400"> {subName(p.subcategoryId)}</p>
+                                        {/if}
+                                    {:else}
+                                        <span class="text-xs text-gray-400">No category</span>
+                                    {/if}
+                                </td>
+
+                                <!-- QUANTITY -->
+                                <td class="px-4 py-3">
+                                    <span class="font-medium text-gray-700">{p.quantity}</span>
+                                </td>
+
+                                <!-- ACTIONS -->
+                                <td class="px-4 py-3 text-right">
+                                    {#if confirmingId === p.id}
+                                        <div class="inline-flex items-center justify-end gap-1">
+                                            <button
+                                                type="button"
+                                                disabled={deletingId === p.id}
+                                                onclick={() => removeProduct(p.id)}
+                                                class="rounded-md bg-red-600 px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-red-700 disabled:opacity-60"
+                                            >
+                                                {deletingId === p.id
+                                                    ? 'Deleting...'
+                                                    : 'Delete'}
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                onclick={() => confirmingId = null}
+                                                class="rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-100"
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    {:else}
+                                        <button
+                                            id="menu-{p.id}"
+                                            type="button"
+                                            aria-label="Actions for {p.name}"
+                                            class="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                                        >
+                                            <DotsVerticalOutline class="h-5 w-5" />
+                                        </button>
+
+                                        <Dropdown
+                                            triggeredBy="#menu-{p.id}"
+                                            placement="bottom-end"
+                                            class="w-36"
+                                        >
+
+                                            <DropdownItem
+                                                class="flex items-center gap-2"
+                                                onclick={() => openEdit(p)}
+                                            >
+                                                <EditOutline class="h-4 w-4" />
+                                                Edit
+                                            </DropdownItem>
+
+                                            <DropdownItem
+                                                class="flex items-center gap-2 text-red-600"
+                                                onclick={() => confirmingId = p.id}
+                                            >
+                                                <TrashBinOutline class="h-4 w-4" />
+                                                Delete
+                                            </DropdownItem>
+
+                                        </Dropdown>
+
+                                    {/if}
+                                </td>
+                            </tr>
+                        {/each}
+                    {/if}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- TABLE FOOTER -->
+        <div class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-4 py-3">
+            <span class="text-xs text-gray-500">
+                {#if selected.length > 0}
+                    {selected.length} selected
+                {:else}
+                    Showing {sorted.length} of {products.length} products
+                {/if}
+            </span>
+
+            <div class="flex items-center gap-2 text-xs text-gray-500">
+                <span>Rows per page</span>
+                <span class="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-gray-600">
+                    {sorted.length}
+                </span>
+            </div>
+        </div>
+    </section>
 </div>
 
-<!-- Edit modal -->
-{#if editing}
-	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<div
-		class="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-gray-900/40 p-4"
-		role="presentation"
-		onclick={(e) => e.target === e.currentTarget && closeEdit()}
-	>
-		<div class="w-full max-w-md rounded-xl bg-white p-6 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="edit-title">
-			<h2 id="edit-title" class="text-base font-semibold text-gray-900">Edit product</h2>
-
-			<form class="mt-5 space-y-4" onsubmit={saveEdit}>
-				<div>
-					<label for="edit-category" class="mb-1.5 block text-sm font-medium text-gray-700">
-						Category <span class="font-normal text-gray-400">(optional)</span>
-					</label>
-					<select
-						id="edit-category"
-						class={inputClass}
-						bind:value={editCategoryId}
-						onchange={() => (editSubcategoryId = '')}
-					>
-						<option value="">No category</option>
-						{#each categories as c (c.id)}
-							<option value={c.id}>{c.name}{c.isActive === false ? ' (inactive)' : ''}</option>
-						{/each}
-					</select>
-				</div>
-
-				<!-- only shown when the chosen category has subcategories -->
-				{#if editCategoryId && editSubs.length > 0}
-					<div>
-						<label for="edit-sub" class="mb-1.5 block text-sm font-medium text-gray-700">
-							Subcategory <span class="font-normal text-gray-400">(optional)</span>
-						</label>
-						<select id="edit-sub" class={inputClass} bind:value={editSubcategoryId}>
-							<option value="">None (directly in the category)</option>
-							{#each editSubs as s (s.id)}
-								<option value={s.id}>{s.name}</option>
-							{/each}
-						</select>
-					</div>
-				{/if}
-
-				<div>
-					<label for="edit-name" class="mb-1.5 block text-sm font-medium text-gray-700">
-						Name <span class="text-red-500">*</span>
-					</label>
-					<input id="edit-name" class={inputClass} type="text" maxlength="120" bind:value={editName} />
-				</div>
-
-				<div>
-					<label for="edit-price" class="mb-1.5 block text-sm font-medium text-gray-700">
-						Price <span class="text-red-500">*</span>
-					</label>
-					<div class="relative">
-						<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
-						<input
-							id="edit-price"
-							class="{inputClass} pl-7"
-							type="number"
-							min="0"
-							step="0.01"
-							inputmode="decimal"
-							bind:value={editPrice}
-						/>
-					</div>
-				</div>
-
-				<div>
-					<label for="edit-desc" class="mb-1.5 block text-sm font-medium text-gray-700">Description</label>
-					<textarea id="edit-desc" class="{inputClass} resize-none" rows="3" maxlength="300" bind:value={editDescription}></textarea>
-				</div>
-
-				{#if editError}
-					<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{editError}</p>
-				{/if}
-
-				<div class="flex justify-end gap-2 pt-1">
-					<button type="button" onclick={closeEdit} class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">
-						Cancel
-					</button>
-					<button
-						type="submit"
-						disabled={saving}
-						class="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-60"
-					>
-						{saving ? 'Saving…' : 'Save changes'}
-					</button>
-				</div>
-			</form>
-		</div>
-	</div>
-{/if}
-
-<!-- Toast -->
-{#if toast}
-	<div
-		class="fixed bottom-6 right-6 z-50 rounded-lg px-4 py-3 text-sm font-medium text-white shadow-lg {toast.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'}"
-		role="status"
-	>
-		{toast.text}
-	</div>
-{/if}
