@@ -16,7 +16,7 @@
         CloseOutline,
 		ArrowDownToBracketOutline
     } from 'flowbite-svelte-icons';
- 	import { Dropdown, DropdownItem, Button, Toggle} from 'flowbite-svelte';
+ 	import { Dropdown, DropdownItem, Button, Toggle,Badge} from 'flowbite-svelte';
 	type SortKey = 'name' |'description' | 'price' | 'category' | 'subcategory' |'quantity' | 'status';
 
 	type Column = {
@@ -521,7 +521,7 @@
                                 </td>
 								<td class="px-4 py-3 font-medium text-gray-700">{p.description}</td>
                                 <!-- PRICE -->
-                                <td class="px-4 py-3 font-medium text-gray-700">{money(p.price)}</td>
+                                <td class="px-4 py-3  text-gray-700">{money(p.price)}</td>
 
                                 <!-- CATEGORY -->
                                 <td class="px-4 py-3">
@@ -546,10 +546,16 @@
 								
                                 <!-- QUANTITY -->
                                 <td class="px-4 py-3">
-                                    <span class="font-medium text-gray-700">{p.quantity}</span>
+                                    <span class="font-medium text-gray-700">
+										{#if p.quantity}
+										<Badge color="gray">{p.quantity}</Badge>
+										{:else}
+										<Badge color="red">out of stock</Badge>
+										{/if}
+									</span>
                                 </td>
 
-								<td class="px-4 py-3">active</td>
+								<td class="px-4 py-3"><Badge color="green">Active</Badge></td>
 
                                 <!-- ACTIONS -->
                                 <td class="px-4 py-3 text-right">
