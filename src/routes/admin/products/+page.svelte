@@ -539,7 +539,7 @@
 									</div>
 								</td>
 								 <!-- PRICE -->
-                                <td class="px-4 py-3  text-gray-700">{money(p.price)}</td>
+                                <td class="px-4 py-3 text-xs font-medium text-gray-700">{money(p.price)}</td>
 								
 
                                 <!-- CATEGORY -->
