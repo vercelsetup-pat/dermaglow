@@ -17,8 +17,7 @@
 		ArrowDownToBracketOutline
     } from 'flowbite-svelte-icons';
  	import { Dropdown, DropdownItem, Button, Toggle,Badge} from 'flowbite-svelte';
-	type SortKey = 'name' |'description' | 'price' | 'category' | 'subcategory' |'quantity' | 'status';
-
+	type SortKey = 'name' | 'price' | 'category' | 'subcategory' | 'description' | 'quantity' | 'status';
 	type Column = {
 		key: SortKey;
 		label: string;
@@ -28,14 +27,13 @@
 	// To add a header, add one line here (and its <td> in the body)
 	const columns: Column[] = [
 		{ key: 'name', label: 'Product Name', sortable: true },
-		{ key: 'description', label: 'Description', sortable: true },
 		{ key: 'price', label: 'Price', sortable: true },
 		{ key: 'category', label: 'Category', sortable: true },
 		{ key: 'subcategory', label: 'Sub Category', sortable: true },
+		{ key: 'description', label: 'Description', sortable: true },
 		{ key: 'quantity', label: 'Quantity', sortable: true },
 		{ key: 'status', label: 'Status', sortable: true }
 	];
-
 	
 	// +1 checkbox column, +1 actions column
 	const colSpan = $derived(columns.length + 2);
@@ -85,7 +83,7 @@
 	
 	const categoryNames = $derived(new Map(categories.map((c) => [c.id, c.name])));
 	const subNames = $derived(new Map(subcategories.map((s) => [s.id, s.name])));
-
+	let imageErrors = $state(new Set<string>());
 	const formSubs = $derived(subcategories.filter((s) => s.categoryId === categoryId));
 	const editSubs = $derived(subcategories.filter((s) => s.categoryId === editCategoryId));
 	const filterSubs = $derived(subcategories.filter((s) => s.categoryId === filterCategoryId));
@@ -505,32 +503,54 @@
 
                                 <!-- PRODUCT NAME -->
                                 <td class="px-4 py-3">
-                                    <div class="flex items-center gap-3">
-                                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-600 text-xs font-semibold text-gray-600">
-                                            {initials(p.name)}
-                                        </div>
+									<div class="flex items-center gap-3">
+										{#if p.imageUrl && !imageErrors.has(p.id)}
+											<img
+												src={p.imageUrl}
+												alt={p.name}
+												class="h-10 w-10 shrink-0 rounded-lg object-cover border border-gray-100"
+												onerror={() => imageErrors = new Set([...imageErrors, p.id])}
+											/>
+										{:else}
+											<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-400">
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													class="h-5 w-5"
+													viewBox="0 0 24 24"
+													fill="none"
+													stroke="currentColor"
+													stroke-width="1.7"
+													stroke-linecap="round"
+													stroke-linejoin="round"
+												>
+													<rect x="3" y="3" width="18" height="18" rx="3" />
+													<circle cx="8.5" cy="8.5" r="1.5" />
+													<path d="m21 15-5-5L5 21" />
+												</svg>
+											</div>
+										{/if}
 
-                                        <div class="min-w-0">
-                                            <p class="max-w-[240px] truncate font-medium text-gray-800" title={p.name}>{p.name}</p>
-                                            {#if p.description}
-                                                <p class="max-w-[240px] truncate text-xs text-gray-400" title={p.description}>{p.description}</p>
-                                            {/if}
-                                        </div>
-                                    </div>
-                                </td>
-								<td class="px-4 py-3 font-medium text-gray-700">{p.description}</td>
-                                <!-- PRICE -->
+										<p
+											class="max-w-[240px] truncate font-medium text-gray-800"
+											title={p.name}
+										>
+											{p.name}
+										</p>
+									</div>
+								</td>
+								 <!-- PRICE -->
                                 <td class="px-4 py-3  text-gray-700">{money(p.price)}</td>
+								
 
                                 <!-- CATEGORY -->
                                 <td class="px-4 py-3">
                                     {#if p.categoryId}
-                                        <p class="text-gray-700">{catName(p.categoryId)}</p>
+                                         	<Badge color="blue"> {catName(p.categoryId)}</Badge>
                                         {#if p.subcategoryId}
-                                            <p class="mt-0.5 text-xs text-gray-400"> {subName(p.subcategoryId)}</p>
+                                            <Badge color="blue"> {subName(p.subcategoryId)}</Badge>
                                         {/if}
                                     {:else}
-                                        <span class="text-xs text-gray-400">No category</span>
+                                         <Badge color="gray">No category</Badge>
                                     {/if}
                                 </td>
 
@@ -539,10 +559,19 @@
 									{#if p.subcategoryId}
 										<p class="text-gray-700">{subName(p.subcategoryId)}</p>
 									{:else}
-										<span class="text-xs text-gray-400">—</span>
+										<Badge color="gray">None</Badge>
 									{/if}
 								</td>
 								
+								<!--Description-->
+								<td class="px-4 py-3 font-medium text-gray-700">
+									{#if p.description}
+										<Badge color="blue">...</Badge>
+									{:else}
+										<Badge color="gray">None</Badge>
+									{/if}
+								</td>
+                              
                                 <!-- QUANTITY -->
                                 <td class="px-4 py-3">
                                     <span class="font-medium text-gray-700">
@@ -554,16 +583,12 @@
 									</span>
                                 </td>
 
-								<td class="px-4 py-3"><Badge color="green">Active</Badge></td>
+								<td class="px-4 py-3"><Toggle  color="green" size="small" checked/></td>
 
                                 <!-- ACTIONS -->
                                 <td class="px-4 py-3 text-right">
 									<div class="inline-flex items-center justify-end gap-1">
-										<button
-											type="button"
-											aria-label="Edit {p.name}"
-											class="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-[#0278BD]"
-										>
+										<button type="button" aria-label="Edit {p.name}" class="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-[#0278BD]">
 											<EditOutline class="h-5 w-5" />
 										</button>
 
