@@ -16,15 +16,20 @@
         CloseOutline,
 		ArrowDownToBracketOutline
     } from 'flowbite-svelte-icons';
- 	import { Dropdown, DropdownItem, Button, Toggle,Badge} from 'flowbite-svelte';
+ 	import { Dropdown, DropdownItem, Button, Toggle, Badge, Modal, Drawer } from 'flowbite-svelte';
+
 	type SortKey = 'name' | 'price' | 'category' | 'subcategory' | 'description' | 'quantity' | 'status';
+
 	type Column = {
 		key: SortKey;
 		label: string;
 		sortable?: boolean;
 	};
 
-	// To add a header, add one line here (and its <td> in the body)
+	let imageFile = $state<File | null>(null);
+	let imagePreview = $state('');
+	const MAX_IMAGE_SIZE = 5 * 1024 * 1024; 
+
 	const columns: Column[] = [
 		{ key: 'name', label: 'Product Name', sortable: true },
 		{ key: 'price', label: 'Price', sortable: true },
@@ -38,6 +43,41 @@
 	// +1 checkbox column, +1 actions column
 	const colSpan = $derived(columns.length + 2);
 
+	function handleImageChange(event: Event) {
+		const input = event.currentTarget as HTMLInputElement;
+		const file = input.files?.[0];
+
+		if (!file) return;
+
+		formError = '';
+
+		if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+			formError = 'Please upload a JPG, PNG, or WEBP image.';
+			input.value = '';
+			return;
+		}
+
+		if (file.size > MAX_IMAGE_SIZE) {
+			formError = 'Image size must not exceed 5 MB.';
+			input.value = '';
+			return;
+		}
+
+		if (imagePreview) URL.revokeObjectURL(imagePreview);
+
+		imageFile = file;
+		imagePreview = URL.createObjectURL(file);
+	}
+
+	function removeImage() {
+		if (imagePreview) URL.revokeObjectURL(imagePreview);
+
+		imageFile = null;
+		imagePreview = '';
+	}
+
+
+	
 	const CATEGORIES_API = '/api/categories';
 	const SUBCATEGORIES_API = '/api/subcategories';
 	const API = '/api/products';
@@ -166,45 +206,66 @@
 
 	//#region Async Functions
 		async function api<T>(url: string, init?: RequestInit): Promise<T> {
-			const res = await fetch(url, {
-				headers: { 'Content-Type': 'application/json' },
-				...init
-			});
-			const body = await res.json().catch(() => null);
-			if (!res.ok || !body?.success) {
-				throw new Error(body?.message ?? 'Something went wrong. Please try again.');
-			}
-			return body.data as T;
-		}
+	const isForm = init?.body instanceof FormData;
 
+	const res = await fetch(url, {
+		...init,
+		headers: isForm ? init?.headers : { 'Content-Type': 'application/json', ...init?.headers }
+	});
+
+	const body = await res.json().catch(() => null);
+	if (!res.ok || !body?.success) {
+		throw new Error(body?.message ?? 'Something went wrong. Please try again.');
+	}
+	return body.data as T;
+}
 		async function addProduct(e: SubmitEvent) {
 			e.preventDefault();
 			formError = '';
+
 			if (!name.trim()) {
 				formError = 'Enter a product name.';
 				return;
 			}
+
 			if (!validPrice(price)) {
 				formError = 'Enter a valid price (0 or more).';
 				return;
 			}
+
 			adding = true;
+
 			try {
+				const formData = new FormData();
+
+				formData.append('name', name.trim());
+				formData.append('price', String(price));
+				formData.append('description', description);
+				formData.append('categoryId', categoryId);
+				formData.append('subcategoryId', categoryId ? subcategoryId : '');
+
+				if (imageFile) {
+					formData.append('image', imageFile);
+				}
+
 				const created = await api<Product>(API, {
 					method: 'POST',
-					body: JSON.stringify({
-						categoryId: categoryId || null,
-						subcategoryId: categoryId ? subcategoryId || null : null,
-						name,
-						price,
-						description
-					})
+					body: formData
 				});
-				products = [created, ...products]; 
+
+				products = [created, ...products];
+
 				name = '';
 				price = '';
 				description = '';
+				categoryId = '';
+				subcategoryId = '';
+
+				removeImage();
+				showAddModal = false;
+
 				notify('success', 'Product added.');
+
 			} catch (err) {
 				formError = err instanceof Error ? err.message : 'Could not add product.';
 			} finally {
@@ -311,6 +372,13 @@
         search = '';
     }
 
+	function closeAddDrawer() {
+		if (adding) return;
+		showAddModal = false;
+		formError = '';
+		removeImage();
+	}
+
     const hasActiveFilters = $derived(
         !!filterCategoryId ||
         !!filterSubId ||
@@ -335,7 +403,7 @@
 			</div>
 		</div>
 
-		<Button class="btn-secondary flex items-center gap-2">
+		<Button type="button" class="btn-secondary flex items-center gap-2" onclick={() => showAddModal = true}>
 			<PlusOutline class="h-4 w-4" />
 			Add Product
 		</Button>
@@ -546,9 +614,6 @@
                                 <td class="px-4 py-3">
                                     {#if p.categoryId}
                                          	<Badge color="blue"> {catName(p.categoryId)}</Badge>
-                                        {#if p.subcategoryId}
-                                            <Badge color="blue"> {subName(p.subcategoryId)}</Badge>
-                                        {/if}
                                     {:else}
                                          <Badge color="gray">No category</Badge>
                                     {/if}
@@ -557,7 +622,7 @@
 								<!-- SUB CATEGORY -->
 								<td class="px-4 py-3">
 									{#if p.subcategoryId}
-										<p class="text-gray-700">{subName(p.subcategoryId)}</p>
+										<Badge color="indigo"> {subName(p.subcategoryId)}</Badge>
 									{:else}
 										<Badge color="gray">None</Badge>
 									{/if}
@@ -628,3 +693,110 @@
     </section>
 </div>
 
+
+<!-- ADD PRODUCT MODAL -->
+<!-- ADD PRODUCT DRAWER -->
+<Drawer
+	bind:open={showAddModal}
+	placement="right"
+	activateClickOutside={false}
+	class="flex h-full w-full max-w-md flex-col border-l border-gray-200 bg-white p-0 shadow-none"
+>
+	<!-- HEADER -->
+	<div class="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+		<h2 class="text-base font-semibold text-gray-800">Add Product</h2>
+		
+	</div>
+
+	<form onsubmit={addProduct} class="flex min-h-0 flex-1 flex-col">
+		<!-- SCROLLABLE BODY -->
+		<div class="flex-1 space-y-5 overflow-y-auto px-5 py-5">
+
+			<!-- IMAGE -->
+			<div>
+				<label class="mb-2 block text-sm font-medium text-gray-700">Product Image</label>
+
+				{#if imagePreview}
+					<div class="relative w-fit">
+						<img src={imagePreview} alt="Product preview" class="h-28 w-28 rounded-xl border border-gray-200 object-cover" />
+						<button type="button" onclick={removeImage} aria-label="Remove image"
+							class="absolute -right-2 -top-2 rounded-full bg-red-500 p-1.5 text-white">
+							<CloseOutline class="h-3.5 w-3.5" />
+						</button>
+					</div>
+				{:else}
+					<label for="product-image"
+						class="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 px-5 py-8 transition hover:border-[#0278BD] hover:bg-sky-50/30">
+						<div class="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-white text-gray-400">
+							<PlusOutline class="h-6 w-6" />
+						</div>
+						<span class="text-sm font-medium text-gray-700">Click to upload an image</span>
+						<span class="mt-1 text-xs text-gray-400">PNG, JPG or WEBP · Maximum 5 MB</span>
+						<input id="product-image" type="file" accept="image/png,image/jpeg,image/webp" class="hidden" onchange={handleImageChange} />
+					</label>
+				{/if}
+			</div>
+
+			<!-- NAME -->
+			<div>
+				<label for="product-name" class="mb-2 block text-sm font-medium text-gray-700">
+					Product Name <span class="text-red-500">*</span>
+				</label>
+				<input id="product-name" bind:value={name} required placeholder="Enter product name"
+					class="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-[#0278BD] focus:ring-2 focus:ring-[#0278BD]/10" />
+			</div>
+
+			<!-- PRICE -->
+			<div>
+				<label for="product-price" class="mb-2 block text-sm font-medium text-gray-700">
+					Price <span class="text-red-500">*</span>
+				</label>
+				<input id="product-price" type="number" min="0" step="0.01" bind:value={price} required placeholder="0.00"
+					class="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-[#0278BD] focus:ring-2 focus:ring-[#0278BD]/10" />
+			</div>
+
+			<!-- CATEGORY -->
+			<div>
+				<label for="product-category" class="mb-2 block text-sm font-medium text-gray-700">Category</label>
+				<select id="product-category" bind:value={categoryId} onchange={() => (subcategoryId = '')}
+					class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0278BD] focus:ring-2 focus:ring-[#0278BD]/10">
+					<option value="">Select category</option>
+					{#each categories as c (c.id)}
+						<option value={c.id}>{c.name}</option>
+					{/each}
+				</select>
+			</div>
+
+			<!-- SUBCATEGORY -->
+			<div>
+				<label for="product-subcategory" class="mb-2 block text-sm font-medium text-gray-700">Subcategory</label>
+				<select id="product-subcategory" bind:value={subcategoryId} disabled={!categoryId || formSubs.length === 0}
+					class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none disabled:bg-gray-50 disabled:text-gray-400 focus:border-[#0278BD] focus:ring-2 focus:ring-[#0278BD]/10">
+					<option value="">Select subcategory</option>
+					{#each formSubs as s (s.id)}
+						<option value={s.id}>{s.name}</option>
+					{/each}
+				</select>
+			</div>
+
+			<!-- DESCRIPTION -->
+			<div>
+				<label for="product-description" class="mb-2 block text-sm font-medium text-gray-700">Description</label>
+				<textarea id="product-description" bind:value={description} rows="3" placeholder="Enter product description..."
+					class="w-full resize-none rounded-lg border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-[#0278BD] focus:ring-2 focus:ring-[#0278BD]/10"></textarea>
+			</div>
+
+			{#if formError}
+				<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{formError}</p>
+			{/if}
+		</div>
+
+		<!-- STICKY FOOTER -->
+		<div class="flex justify-end gap-3 border-t border-gray-100 bg-white px-5 py-4">
+			<Button type="button" color="light" onclick={closeAddDrawer} disabled={adding}>Cancel</Button>
+			<Button type="submit" class="btn-secondary" disabled={adding}>
+				{adding ? 'Adding...' : 'Add Product'}
+			</Button>
+		</div>
+	</form>
+</Drawer>
