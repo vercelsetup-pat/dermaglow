@@ -389,414 +389,410 @@
 </script>
 
 <svelte:window onkeydown={(e) => e.key === 'Escape' && closeEdit()} />
-
-<div class="page-content space-y-4">
-	<!--Header-->
-	<div class="header-page">
-		<div class="flex items-center gap-3">
-			<div class="header-icon">
-				<LayersOutline class="h-9 w-9" color="#0278BD"/>
+<div class="flex items-start gap-4">
+	<div class="page-content min-w-0 flex-1 space-y-4">
+		<!--Header-->
+		<div class="header-page">
+			<div class="flex items-center gap-3">
+				<div class="header-icon">
+					<LayersOutline class="h-9 w-9" color="#0278BD"/>
+				</div>
+				<div>
+					<h1 class="heading-1">Products</h1>
+					<p class="heading-3">Manage and collaborate on your products listing</p>
+				</div>
 			</div>
-			<div>
-				<h1 class="heading-1">Products</h1>
-				<p class="heading-3">Manage and collaborate on your products listing</p>
+
+			<Button type="button" class="btn-secondary flex items-center gap-2" onclick={() => showAddModal = true}>
+				<PlusOutline class="h-4 w-4" />
+				Add Product
+			</Button>
+		</div>
+
+		<!--Card-->
+		<div class="card">
+			<!-- Total Products -->
+			<div class="flex items-center justify-between border-b border-gray-100 p-5 transition hover:bg-gray-50/50 sm:border-r xl:border-b-0">
+				<div>
+					<p class="text-xs font-medium text-gray-500">Total Products</p>
+					<p class="mt-2 text-2xl font-semibold tracking-tight text-gray-900">{totalProducts.toLocaleString()}</p>
+					<p class="mt-1.5 text-xs text-gray-400">All items in your store</p>
+				</div>
+				<div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-green-50 text-green-600">
+					<LayersOutline class="h-6 w-6" />
+				</div>
+			</div>
+
+			<!-- In Stock -->
+			<div class="flex items-center justify-between border-b border-gray-100 p-5 transition hover:bg-gray-50/50 xl:border-b-0 xl:border-r">
+				<div>
+					<p class="text-xs font-medium text-gray-500">In Stock</p>
+					<p class="mt-2 text-2xl font-semibold tracking-tight text-gray-900">{inStock.toLocaleString()}</p>
+					<p class="mt-1.5 text-xs text-gray-400">More than 5 available</p>
+				</div>
+				<div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-green-50 text-green-600">
+					<CheckCircleOutline class="h-6 w-6" />
+				</div>
+			</div>
+
+			<!-- Low Stock -->
+			<div class="flex items-center justify-between border-b border-gray-100 p-5 transition hover:bg-gray-50/50 sm:border-r xl:border-b-0">
+				<div>
+					<p class="text-xs font-medium text-gray-500">Low Stock</p>
+					<p class="mt-2 text-2xl font-semibold tracking-tight text-gray-900">{lowStock.toLocaleString()}</p>
+					<p class="mt-1.5 text-xs text-gray-400">5 or fewer available</p>
+				</div>
+				<div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+					<ExclamationCircleOutline class="h-6 w-6" />
+				</div>
+			</div>
+
+			<!-- Out of Stock -->
+			<div class="flex items-center justify-between p-5 transition hover:bg-gray-50/50">
+				<div>
+					<p class="text-xs font-medium text-gray-500">Out of Stock</p>
+					<p class="mt-2 text-2xl font-semibold tracking-tight text-gray-900">{outOfStock.toLocaleString()}</p>
+					<p class="mt-1.5 text-xs text-gray-400">Needs restocking</p>
+				</div>
+
+				<div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600">
+					<CloseCircleOutline class="h-6 w-6" />
+				</div>
 			</div>
 		</div>
 
-		<Button type="button" class="btn-secondary flex items-center gap-2" onclick={() => showAddModal = true}>
-			<PlusOutline class="h-4 w-4" />
-			Add Product
-		</Button>
-	</div>
+		<!--Table-->
+		<section>
+			<!-- TOOLBAR -->
+			<div class="flex flex-wrap items-center justify-between gap-3 pb-4">
+				<div class="relative w-full sm:w-72"> 
+					<SearchOutline class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+					<input
+						type="search"
+						placeholder="Search products..."
+						aria-label="Search products"
+						bind:value={search}
+						class="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-[#0278BD] focus:ring-2 focus:ring-[#0278BD]/10"
+					/>
+				</div>
 
-	<!--Card-->
-	<div class="card">
-        <!-- Total Products -->
-        <div class="flex items-center justify-between border-b border-gray-100 p-5 transition hover:bg-gray-50/50 sm:border-r xl:border-b-0">
-            <div>
-                <p class="text-xs font-medium text-gray-500">Total Products</p>
-                <p class="mt-2 text-2xl font-semibold tracking-tight text-gray-900">{totalProducts.toLocaleString()}</p>
-                <p class="mt-1.5 text-xs text-gray-400">All items in your store</p>
-            </div>
-            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-green-50 text-green-600">
-                <LayersOutline class="h-6 w-6" />
-            </div>
-        </div>
+				<div class="flex flex-wrap items-center gap-2">
+					{#if hasActiveFilters}
+						<button type="button" onclick={clearFilters} class="rounded-lg px-3 py-2 text-xs font-medium text-gray-500 transition hover:bg-gray-100 hover:text-gray-800">
+							Clear filters
+						</button>
+					{/if}
 
-        <!-- In Stock -->
-        <div class="flex items-center justify-between border-b border-gray-100 p-5 transition hover:bg-gray-50/50 xl:border-b-0 xl:border-r">
-            <div>
-                <p class="text-xs font-medium text-gray-500">In Stock</p>
-                <p class="mt-2 text-2xl font-semibold tracking-tight text-gray-900">{inStock.toLocaleString()}</p>
-                <p class="mt-1.5 text-xs text-gray-400">More than 5 available</p>
-            </div>
-            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-green-50 text-green-600">
-                <CheckCircleOutline class="h-6 w-6" />
-            </div>
-        </div>
+					<Button type="button" onclick={() => showFilters = !showFilters} color="light" class="inline-flex items-center gap-2 px-3 py-2 text-sm">
+						<ArrowDownToBracketOutline  class="h-4 w-4" />
+						Export
+					</Button>
 
-        <!-- Low Stock -->
-        <div class="flex items-center justify-between border-b border-gray-100 p-5 transition hover:bg-gray-50/50 sm:border-r xl:border-b-0">
-            <div>
-                <p class="text-xs font-medium text-gray-500">Low Stock</p>
-                <p class="mt-2 text-2xl font-semibold tracking-tight text-gray-900">{lowStock.toLocaleString()}</p>
-                <p class="mt-1.5 text-xs text-gray-400">5 or fewer available</p>
-            </div>
-            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
-                <ExclamationCircleOutline class="h-6 w-6" />
-            </div>
-        </div>
+					<Button type="button" onclick={() => showFilters = !showFilters} color="light" class="inline-flex items-center gap-2 px-3 py-2 text-sm">
+						<FilterOutline class="h-4 w-4" />
+						Filter
+						{#if hasActiveFilters}
+							<span class="h-1.5 w-1.5 rounded-full bg-[#0278BD]"></span>
+						{/if}
+					</Button>
+				</div>
+			</div>
 
-        <!-- Out of Stock -->
-        <div class="flex items-center justify-between p-5 transition hover:bg-gray-50/50">
-            <div>
-                <p class="text-xs font-medium text-gray-500">Out of Stock</p>
-                <p class="mt-2 text-2xl font-semibold tracking-tight text-gray-900">{outOfStock.toLocaleString()}</p>
-                <p class="mt-1.5 text-xs text-gray-400">Needs restocking</p>
-            </div>
-
-            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600">
-                <CloseCircleOutline class="h-6 w-6" />
-            </div>
-        </div>
-    </div>
-
-	<!--Table-->
-	<section>
-        <!-- TOOLBAR -->
-        <div class="flex flex-wrap items-center justify-between gap-3 pb-4">
-            <div class="relative w-full sm:w-72"> 
-                <SearchOutline class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <input
-                    type="search"
-                    placeholder="Search products..."
-                    aria-label="Search products"
-                    bind:value={search}
-                    class="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-[#0278BD] focus:ring-2 focus:ring-[#0278BD]/10"
-                />
-            </div>
-
-            <div class="flex flex-wrap items-center gap-2">
-                {#if hasActiveFilters}
-                    <button type="button" onclick={clearFilters} class="rounded-lg px-3 py-2 text-xs font-medium text-gray-500 transition hover:bg-gray-100 hover:text-gray-800">
-                        Clear filters
-                    </button>
-                {/if}
-
-				<Button type="button" onclick={() => showFilters = !showFilters} color="light" class="inline-flex items-center gap-2 px-3 py-2 text-sm">
-                    <ArrowDownToBracketOutline  class="h-4 w-4" />
-                    Export
-                </Button>
-
-				 <Button type="button" onclick={() => showFilters = !showFilters} color="light" class="inline-flex items-center gap-2 px-3 py-2 text-sm">
-                    <FilterOutline class="h-4 w-4" />
-                    Filter
-                    {#if hasActiveFilters}
-                        <span class="h-1.5 w-1.5 rounded-full bg-[#0278BD]"></span>
-                    {/if}
-				</Button>
-            </div>
-        </div>
-
-        <!-- TABLE -->
-        <div class="overflow-x-auto border-t border-gray-100">
-            <table class="w-full min-w-[760px] text-left text-sm">
-                <!-- TABLE HEADER -->
-                <thead class="bg-gray-50/70 text-xs font-medium text-gray-500">
-					<tr class="border-b border-gray-100">
-						<th class="w-12 px-4 py-3">
-							<input
-								type="checkbox"
-								checked={allSelected}
-								onchange={toggleAll}
-								class="h-4 w-4 rounded border-gray-300 text-[#0278BD] focus:ring-[#0278BD]/30"
-								aria-label="Select all products"
-							/>
-						</th>
-
-						{#each columns as col (col.key)}
-							<th class="px-4 py-3">
-								{#if col.sortable}
-									<button type="button" onclick={() => sortBy(col.key)} class="inline-flex items-center gap-1.5 transition hover:text-gray-900 {sortKey === col.key ? 'text-gray-900' : ''}">
-										{col.label}
-										<ChevronDownOutline class="h-3.5 w-3.5 transition {sortKey === col.key ? 'text-[#0278BD]' : ''} {sortKey === col.key && sortDir === 'asc' ? 'rotate-180' : ''}"/>
-									</button>
-								{:else}
-									{col.label}
-								{/if}
+			<!-- TABLE -->
+			<div class="overflow-x-auto border-t border-gray-100">
+				<table class="w-full min-w-[760px] text-left text-sm">
+					<!-- TABLE HEADER -->
+					<thead class="bg-gray-50/70 text-xs font-medium text-gray-500">
+						<tr class="border-b border-gray-100">
+							<th class="w-12 px-4 py-3">
+								<input
+									type="checkbox"
+									checked={allSelected}
+									onchange={toggleAll}
+									class="h-4 w-4 rounded border-gray-300 text-[#0278BD] focus:ring-[#0278BD]/30"
+									aria-label="Select all products"
+								/>
 							</th>
-						{/each}
-						<th class="px-4 py-3 text-right">Actions</th>
-					</tr>
-				</thead>
-                <!-- TABLE BODY -->
-                <tbody class="divide-y divide-gray-100">
-                    {#if loading}
-                        {#each [1, 2, 3, 4, 5] as n (n)}
-                            <tr>
-                                <td colspan="6" class="px-4 py-3">
-                                    <div class="h-9 animate-pulse rounded-lg bg-gray-100"></div>
-                                </td>
-                            </tr>
-                        {/each}
-                    {:else if sorted.length === 0}
-                        <tr>
-                            <td colspan="6" class="px-5 py-16 text-center">
-                                <div class="mx-auto flex max-w-sm flex-col items-center">
-                                    <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100 text-gray-400">
-                                        <SearchOutline class="h-6 w-6" />
-                                    </div>
-                                    <p class="text-sm font-medium text-gray-700">
-                                        {products.length === 0 ? 'No products yet' : 'No products found'}
-                                    </p>
-                                    <p class="mt-1 text-xs text-gray-400">
-                                        {products.length === 0 ? 'Add your first product to get started.' : 'Try changing your search or filters.'}
-                                    </p>
-                                </div>
-                            </td>
-                        </tr>
-                    {:else}
-                        {#each sorted as p (p.id)}
-                            <tr class="border-b border-gray-100 transition-colors hover:bg-gray-50/70 {selected.includes(p.id) ? 'bg-sky-50/50' : ''}">
-                                <!-- CHECKBOX -->
-                                <td class="px-4 py-3">
-                                    <input
-                                        type="checkbox"
-                                        value={p.id}
-                                        bind:group={selected}
-                                        class="h-4 w-4 rounded border-gray-300 text-[#0278BD] focus:ring-[#0278BD]/30"
-                                        aria-label="Select {p.name}"
-                                    />
-                                </td>
 
-                                <!-- PRODUCT NAME -->
-                                <td class="px-4 py-3">
-									<div class="flex items-center gap-3">
-										{#if p.imageUrl && !imageErrors.has(p.id)}
-											<img
-												src={p.imageUrl}
-												alt={p.name}
-												class="h-10 w-10 shrink-0 rounded-lg object-cover border border-gray-100"
-												onerror={() => imageErrors = new Set([...imageErrors, p.id])}
-											/>
-										{:else}
-											<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-400">
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													class="h-5 w-5"
-													viewBox="0 0 24 24"
-													fill="none"
-													stroke="currentColor"
-													stroke-width="1.7"
-													stroke-linecap="round"
-													stroke-linejoin="round"
-												>
-													<rect x="3" y="3" width="18" height="18" rx="3" />
-													<circle cx="8.5" cy="8.5" r="1.5" />
-													<path d="m21 15-5-5L5 21" />
-												</svg>
-											</div>
-										{/if}
-
-										<p
-											class="max-w-[240px] truncate font-medium text-gray-800"
-											title={p.name}
-										>
-											{p.name}
+							{#each columns as col (col.key)}
+								<th class="px-4 py-3">
+									{#if col.sortable}
+										<button type="button" onclick={() => sortBy(col.key)} class="inline-flex items-center gap-1.5 transition hover:text-gray-900 {sortKey === col.key ? 'text-gray-900' : ''}">
+											{col.label}
+											<ChevronDownOutline class="h-3.5 w-3.5 transition {sortKey === col.key ? 'text-[#0278BD]' : ''} {sortKey === col.key && sortDir === 'asc' ? 'rotate-180' : ''}"/>
+										</button>
+									{:else}
+										{col.label}
+									{/if}
+								</th>
+							{/each}
+							<th class="px-4 py-3 text-right">Actions</th>
+						</tr>
+					</thead>
+					<!-- TABLE BODY -->
+					<tbody class="divide-y divide-gray-100">
+						{#if loading}
+							{#each [1, 2, 3, 4, 5] as n (n)}
+								<tr>
+									<td colspan="6" class="px-4 py-3">
+										<div class="h-9 animate-pulse rounded-lg bg-gray-100"></div>
+									</td>
+								</tr>
+							{/each}
+						{:else if sorted.length === 0}
+							<tr>
+								<td colspan="6" class="px-5 py-16 text-center">
+									<div class="mx-auto flex max-w-sm flex-col items-center">
+										<div class="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100 text-gray-400">
+											<SearchOutline class="h-6 w-6" />
+										</div>
+										<p class="text-sm font-medium text-gray-700">
+											{products.length === 0 ? 'No products yet' : 'No products found'}
+										</p>
+										<p class="mt-1 text-xs text-gray-400">
+											{products.length === 0 ? 'Add your first product to get started.' : 'Try changing your search or filters.'}
 										</p>
 									</div>
 								</td>
-								 <!-- PRICE -->
-                                <td class="px-4 py-3 text-xs font-medium text-gray-700">{money(p.price)}</td>
-								
+							</tr>
+						{:else}
+							{#each sorted as p (p.id)}
+								<tr class="border-b border-gray-100 transition-colors hover:bg-gray-50/70 {selected.includes(p.id) ? 'bg-sky-50/50' : ''}">
+									<!-- CHECKBOX -->
+									<td class="px-4 py-3">
+										<input
+											type="checkbox"
+											value={p.id}
+											bind:group={selected}
+											class="h-4 w-4 rounded border-gray-300 text-[#0278BD] focus:ring-[#0278BD]/30"
+											aria-label="Select {p.name}"
+										/>
+									</td>
 
-                                <!-- CATEGORY -->
-                                <td class="px-4 py-3">
-                                    {#if p.categoryId}
-                                         	<Badge color="blue"> {catName(p.categoryId)}</Badge>
-                                    {:else}
-                                         <Badge color="gray">No category</Badge>
-                                    {/if}
-                                </td>
+									<!-- PRODUCT NAME -->
+									<td class="px-4 py-3">
+										<div class="flex items-center gap-3">
+											{#if p.imageUrl && !imageErrors.has(p.id)}
+												<img
+													src={p.imageUrl}
+													alt={p.name}
+													class="h-10 w-10 shrink-0 rounded-lg object-cover border border-gray-100"
+													onerror={() => imageErrors = new Set([...imageErrors, p.id])}
+												/>
+											{:else}
+												<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-400">
+													<svg
+														xmlns="http://www.w3.org/2000/svg"
+														class="h-5 w-5"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="1.7"
+														stroke-linecap="round"
+														stroke-linejoin="round"
+													>
+														<rect x="3" y="3" width="18" height="18" rx="3" />
+														<circle cx="8.5" cy="8.5" r="1.5" />
+														<path d="m21 15-5-5L5 21" />
+													</svg>
+												</div>
+											{/if}
 
-								<!-- SUB CATEGORY -->
-								<td class="px-4 py-3">
-									{#if p.subcategoryId}
-										<Badge color="indigo"> {subName(p.subcategoryId)}</Badge>
-									{:else}
-										<Badge color="gray">None</Badge>
-									{/if}
-								</td>
-								
-								<!--Description-->
-								<td class="px-4 py-3 font-medium text-gray-700">
-									{#if p.description}
-										<Badge color="blue">...</Badge>
-									{:else}
-										<Badge color="gray">None</Badge>
-									{/if}
-								</td>
-                              
-                                <!-- QUANTITY -->
-                                <td class="px-4 py-3">
-                                    <span class="font-medium text-gray-700">
-										{#if p.quantity}
-										<Badge color="gray">{p.quantity}</Badge>
+											<p
+												class="max-w-[240px] truncate font-medium text-gray-800"
+												title={p.name}
+											>
+												{p.name}
+											</p>
+										</div>
+									</td>
+									<!-- PRICE -->
+									<td class="px-4 py-3 text-xs font-medium text-gray-700">{money(p.price)}</td>
+									
+
+									<!-- CATEGORY -->
+									<td class="px-4 py-3">
+										{#if p.categoryId}
+												<Badge color="blue"> {catName(p.categoryId)}</Badge>
 										{:else}
-										<Badge color="red">out of stock</Badge>
+											<Badge color="gray">No category</Badge>
 										{/if}
-									</span>
-                                </td>
+									</td>
 
-								<td class="px-4 py-3"><Toggle  color="green" size="small" checked/></td>
+									<!-- SUB CATEGORY -->
+									<td class="px-4 py-3">
+										{#if p.subcategoryId}
+											<Badge color="indigo"> {subName(p.subcategoryId)}</Badge>
+										{:else}
+											<Badge color="gray">None</Badge>
+										{/if}
+									</td>
+									
+									<!--Description-->
+									<td class="px-4 py-3 font-medium text-gray-700">
+										{#if p.description}
+											<Badge color="blue">...</Badge>
+										{:else}
+											<Badge color="gray">None</Badge>
+										{/if}
+									</td>
+								
+									<!-- QUANTITY -->
+									<td class="px-4 py-3">
+										<span class="font-medium text-gray-700">
+											{#if p.quantity}
+											<Badge color="gray">{p.quantity}</Badge>
+											{:else}
+											<Badge color="red">out of stock</Badge>
+											{/if}
+										</span>
+									</td>
 
-                                <!-- ACTIONS -->
-                                <td class="px-4 py-3 text-right">
-									<div class="inline-flex items-center justify-end gap-1">
-										<button type="button" aria-label="Edit {p.name}" class="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-[#0278BD]">
-											<EditOutline class="h-5 w-5" />
-										</button>
+									<td class="px-4 py-3"><Toggle  color="green" size="small" checked/></td>
 
-										<button
-											type="button"
-											aria-label="Delete {p.name}"
-											class="rounded-lg p-1.5 text-gray-400 transition hover:bg-red-50 hover:text-red-600"
-										>
-											<TrashBinOutline class="h-5 w-5" />
-										</button>
-									</div>
-								</td>
-                            </tr>
-                        {/each}
-                    {/if}
-                </tbody>
-            </table>
-        </div>
+									<!-- ACTIONS -->
+									<td class="px-4 py-3 text-right">
+										<div class="inline-flex items-center justify-end gap-1">
+											<button type="button" aria-label="Edit {p.name}" class="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-[#0278BD]">
+												<EditOutline class="h-5 w-5" />
+											</button>
 
-        <!-- TABLE FOOTER -->
-        <div class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-4 py-3">
-            <span class="text-xs text-gray-500">
-                {#if selected.length > 0}
-                    {selected.length} selected
-                {:else}
-                    Showing {sorted.length} of {products.length} products
-                {/if}
-            </span>
+											<button
+												type="button"
+												aria-label="Delete {p.name}"
+												class="rounded-lg p-1.5 text-gray-400 transition hover:bg-red-50 hover:text-red-600"
+											>
+												<TrashBinOutline class="h-5 w-5" />
+											</button>
+										</div>
+									</td>
+								</tr>
+							{/each}
+						{/if}
+					</tbody>
+				</table>
+			</div>
 
-            <div class="flex items-center gap-2 text-xs text-gray-500">
-                <span>Rows per page</span>
-                <span class="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-gray-600">
-                    {sorted.length}
-                </span>
-            </div>
-        </div>
-    </section>
-</div>
+			<!-- TABLE FOOTER -->
+			<div class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-4 py-3">
+				<span class="text-xs text-gray-500">
+					{#if selected.length > 0}
+						{selected.length} selected
+					{:else}
+						Showing {sorted.length} of {products.length} products
+					{/if}
+				</span>
 
-
-<!-- ADD PRODUCT MODAL -->
-<!-- ADD PRODUCT DRAWER -->
-<Drawer
-	bind:open={showAddModal}
-	placement="right"
-	activateClickOutside={false}
-	class="flex h-full w-full max-w-md flex-col border-l border-gray-200 bg-white p-0 shadow-none"
->
-	<!-- HEADER -->
-	<div class="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-		<h2 class="text-base font-semibold text-gray-800">Add Product</h2>
-		
+				<div class="flex items-center gap-2 text-xs text-gray-500">
+					<span>Rows per page</span>
+					<span class="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-gray-600">
+						{sorted.length}
+					</span>
+				</div>
+			</div>
+		</section>
 	</div>
 
-	<form onsubmit={addProduct} class="flex min-h-0 flex-1 flex-col">
-		<!-- SCROLLABLE BODY -->
-		<div class="flex-1 space-y-5 overflow-y-auto px-5 py-5">
+	{#if showAddModal}
+		<aside
+			class="sticky top-4 flex max-h-[calc(100vh-2rem)] w-full max-w-sm shrink-0 flex-col rounded-xl border border-gray-200 bg-white"
+			aria-label="Add product"
+		>
+			<div class="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+				<h2 class="text-base font-semibold text-gray-800">Add Product</h2>
+				<button type="button" onclick={closeAddDrawer} aria-label="Close"
+					class="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700">
+					<CloseOutline class="h-5 w-5" />
+				</button>
+			</div>
 
-			<!-- IMAGE -->
-			<div>
-				<label class="mb-2 block text-sm font-medium text-gray-700">Product Image</label>
-
-				{#if imagePreview}
-					<div class="relative w-fit">
-						<img src={imagePreview} alt="Product preview" class="h-28 w-28 rounded-xl border border-gray-200 object-cover" />
-						<button type="button" onclick={removeImage} aria-label="Remove image"
-							class="absolute -right-2 -top-2 rounded-full bg-red-500 p-1.5 text-white">
-							<CloseOutline class="h-3.5 w-3.5" />
-						</button>
+			<form onsubmit={addProduct} class="flex min-h-0 flex-1 flex-col">
+				<div class="flex-1 space-y-5 overflow-y-auto px-5 py-5">
+					<!-- IMAGE -->
+					<div>
+						<label class="mb-2 block text-sm font-medium text-gray-700">Product Image</label>
+						{#if imagePreview}
+							<div class="relative w-fit">
+								<img src={imagePreview} alt="Product preview" class="h-28 w-28 rounded-xl border border-gray-200 object-cover" />
+								<button type="button" onclick={removeImage} aria-label="Remove image"
+									class="absolute -right-2 -top-2 rounded-full bg-red-500 p-1.5 text-white">
+									<CloseOutline class="h-3.5 w-3.5" />
+								</button>
+							</div>
+						{:else}
+							<label for="product-image"
+								class="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 px-5 py-8 transition hover:border-[#0278BD] hover:bg-sky-50/30">
+								<div class="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-white text-gray-400">
+									<PlusOutline class="h-6 w-6" />
+								</div>
+								<span class="text-sm font-medium text-gray-700">Click to upload an image</span>
+								<span class="mt-1 text-xs text-gray-400">PNG, JPG or WEBP · Maximum 5 MB</span>
+								<input id="product-image" type="file" accept="image/png,image/jpeg,image/webp" class="hidden" onchange={handleImageChange} />
+							</label>
+						{/if}
 					</div>
-				{:else}
-					<label for="product-image"
-						class="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 px-5 py-8 transition hover:border-[#0278BD] hover:bg-sky-50/30">
-						<div class="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-white text-gray-400">
-							<PlusOutline class="h-6 w-6" />
-						</div>
-						<span class="text-sm font-medium text-gray-700">Click to upload an image</span>
-						<span class="mt-1 text-xs text-gray-400">PNG, JPG or WEBP · Maximum 5 MB</span>
-						<input id="product-image" type="file" accept="image/png,image/jpeg,image/webp" class="hidden" onchange={handleImageChange} />
-					</label>
-				{/if}
-			</div>
 
-			<!-- NAME -->
-			<div>
-				<label for="product-name" class="mb-2 block text-sm font-medium text-gray-700">
-					Product Name <span class="text-red-500">*</span>
-				</label>
-				<input id="product-name" bind:value={name} required placeholder="Enter product name"
-					class="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-[#0278BD] focus:ring-2 focus:ring-[#0278BD]/10" />
-			</div>
+					<!-- NAME -->
+					<div>
+						<label for="product-name" class="mb-2 block text-sm font-medium text-gray-700">
+							Product Name <span class="text-red-500">*</span>
+						</label>
+						<input id="product-name" bind:value={name} required placeholder="Enter product name"
+							class="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-[#0278BD] focus:ring-2 focus:ring-[#0278BD]/10" />
+					</div>
 
-			<!-- PRICE -->
-			<div>
-				<label for="product-price" class="mb-2 block text-sm font-medium text-gray-700">
-					Price <span class="text-red-500">*</span>
-				</label>
-				<input id="product-price" type="number" min="0" step="0.01" bind:value={price} required placeholder="0.00"
-					class="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-[#0278BD] focus:ring-2 focus:ring-[#0278BD]/10" />
-			</div>
+					<!-- PRICE -->
+					<div>
+						<label for="product-price" class="mb-2 block text-sm font-medium text-gray-700">
+							Price <span class="text-red-500">*</span>
+						</label>
+						<input id="product-price" type="number" min="0" step="0.01" bind:value={price} required placeholder="0.00"
+							class="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-[#0278BD] focus:ring-2 focus:ring-[#0278BD]/10" />
+					</div>
 
-			<!-- CATEGORY -->
-			<div>
-				<label for="product-category" class="mb-2 block text-sm font-medium text-gray-700">Category</label>
-				<select id="product-category" bind:value={categoryId} onchange={() => (subcategoryId = '')}
-					class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0278BD] focus:ring-2 focus:ring-[#0278BD]/10">
-					<option value="">Select category</option>
-					{#each categories as c (c.id)}
-						<option value={c.id}>{c.name}</option>
-					{/each}
-				</select>
-			</div>
+					<!-- CATEGORY -->
+					<div>
+						<label for="product-category" class="mb-2 block text-sm font-medium text-gray-700">Category</label>
+						<select id="product-category" bind:value={categoryId} onchange={() => (subcategoryId = '')}
+							class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0278BD] focus:ring-2 focus:ring-[#0278BD]/10">
+							<option value="">Select category</option>
+							{#each categories as c (c.id)}
+								<option value={c.id}>{c.name}</option>
+							{/each}
+						</select>
+					</div>
 
-			<!-- SUBCATEGORY -->
-			<div>
-				<label for="product-subcategory" class="mb-2 block text-sm font-medium text-gray-700">Subcategory</label>
-				<select id="product-subcategory" bind:value={subcategoryId} disabled={!categoryId || formSubs.length === 0}
-					class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none disabled:bg-gray-50 disabled:text-gray-400 focus:border-[#0278BD] focus:ring-2 focus:ring-[#0278BD]/10">
-					<option value="">Select subcategory</option>
-					{#each formSubs as s (s.id)}
-						<option value={s.id}>{s.name}</option>
-					{/each}
-				</select>
-			</div>
+					<!-- SUBCATEGORY -->
+					<div>
+						<label for="product-subcategory" class="mb-2 block text-sm font-medium text-gray-700">Subcategory</label>
+						<select id="product-subcategory" bind:value={subcategoryId} disabled={!categoryId || formSubs.length === 0}
+							class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none disabled:bg-gray-50 disabled:text-gray-400 focus:border-[#0278BD] focus:ring-2 focus:ring-[#0278BD]/10">
+							<option value="">Select subcategory</option>
+							{#each formSubs as s (s.id)}
+								<option value={s.id}>{s.name}</option>
+							{/each}
+						</select>
+					</div>
 
-			<!-- DESCRIPTION -->
-			<div>
-				<label for="product-description" class="mb-2 block text-sm font-medium text-gray-700">Description</label>
-				<textarea id="product-description" bind:value={description} rows="3" placeholder="Enter product description..."
-					class="w-full resize-none rounded-lg border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-[#0278BD] focus:ring-2 focus:ring-[#0278BD]/10"></textarea>
-			</div>
+					<!-- DESCRIPTION -->
+					<div>
+						<label for="product-description" class="mb-2 block text-sm font-medium text-gray-700">Description</label>
+						<textarea id="product-description" bind:value={description} rows="3" placeholder="Enter product description..."
+							class="w-full resize-none rounded-lg border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-[#0278BD] focus:ring-2 focus:ring-[#0278BD]/10"></textarea>
+					</div>
 
-			{#if formError}
-				<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{formError}</p>
-			{/if}
-		</div>
+					{#if formError}
+						<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{formError}</p>
+					{/if}
+				</div>
 
-		<!-- STICKY FOOTER -->
-		<div class="flex justify-end gap-3 border-t border-gray-100 bg-white px-5 py-4">
-			<Button type="button" color="light" onclick={closeAddDrawer} disabled={adding}>Cancel</Button>
-			<Button type="submit" class="btn-secondary" disabled={adding}>
-				{adding ? 'Adding...' : 'Add Product'}
-			</Button>
-		</div>
-	</form>
-</Drawer>
+				<div class="flex justify-end gap-3 border-t border-gray-100 bg-white px-5 py-4">
+					<Button type="button" color="light" onclick={closeAddDrawer} disabled={adding}>Cancel</Button>
+					<Button type="submit" class="btn-secondary" disabled={adding}>
+						{adding ? 'Adding...' : 'Add Product'}
+					</Button>
+				</div>
+			</form>
+		</aside>
+	{/if}
+</div>
