@@ -15,9 +15,9 @@
         CloseOutline,
 		ArrowDownToBracketOutline
     } from 'flowbite-svelte-icons';
- 	import { Button, Toggle, Badge } from 'flowbite-svelte';
+ 	import { Button, Toggle, Badge,Checkbox, Input, Select, Textarea  } from 'flowbite-svelte';
 
-	let quantity = $state<number | string | null>('');
+	
 
 	function validQuantity(value: number | string | null) {
 		const s = String(value ?? '').trim();
@@ -56,7 +56,8 @@
 		let categories = $state<Category[]>([]);
 		let subcategories = $state<Subcategory[]>([]);
 		let products = $state<Product[]>([]);
-		let price = $state<number | string | null>('');
+		let price = $state<string | number>('');
+		let quantity = $state<string | number>('');
 		let editing = $state<Product | null>(null);
 		let editPrice = $state<number | string | null>('');
 		let confirmingId = $state<string | null>(null);
@@ -103,6 +104,8 @@
 			products.filter((p) => Number(p.quantity) > 5).length
 		);
 
+		const categoryItems = $derived(categories.map((c) => ({ value: c.id, name: c.name })));
+		const subcategoryItems = $derived(formSubs.map((s) => ({ value: s.id, name: s.name })));
 		const lowStock = $derived(products.filter( (p) => Number(p.quantity) > 0 && Number(p.quantity) <= 5).length);
 		const outOfStock = $derived(products.filter((p) => Number(p.quantity) <= 0).length);
 		const catName = (id: string | null) => (id ? (categoryNames.get(id) ?? 'Unknown category') : '');
@@ -385,16 +388,14 @@
 		<!--Header-->
 		<div class="header-page">
 			<div class="flex items-center gap-3">
-				<div class="header-icon">
-					<LayersOutline class="h-9 w-9" color="#0278BD"/>
-				</div>
+				<div><LayersOutline class="h-9 w-9" color="#0278BD"/></div>
 				<div>
 					<h1 class="heading-1">Products</h1>
 					<p class="heading-3">Manage and collaborate on your products listing</p>
 				</div>
 			</div>
 
-			<Button type="button" class="btn-secondary flex items-center gap-2" onclick={() => { editing = null; showAddModal = true; }}>
+			<Button type="button" class="flex items-center gap-2" onclick={() => { editing = null; showAddModal = true; }}>
 				<PlusOutline class="h-4 w-4" />
 				Add Product
 			</Button>
@@ -457,14 +458,7 @@
 			<!-- TOOLBAR -->
 			<div class="flex flex-wrap items-center justify-between gap-3 pb-4">
 				<div class="relative w-full sm:w-72"> 
-					<SearchOutline class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-					<input
-						type="search"
-						placeholder="Search products..."
-						aria-label="Search products"
-						bind:value={search}
-						class="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-[#0278BD] focus:ring-2 focus:ring-[#0278BD]/10"
-					/>
+					<Input type="search" placeholder="Search products..." aria-label="Search products" bind:value={search}/>
 				</div>
 
 				<div class="flex flex-wrap items-center gap-2">
@@ -492,19 +486,11 @@
 			<!-- TABLE -->
 			<div class="overflow-x-auto border-t border-gray-100">
 				<table>
-					<!-- TABLE HEADER -->
 					<thead>
 						<tr>
 							<th>
-								<input
-									type="checkbox"
-									checked={allSelected}
-									onchange={toggleAll}
-									class="h-4 w-4 rounded border-gray-300 text-[#0278BD] focus:ring-[#0278BD]/30"
-									aria-label="Select all products"
-								/>
+								<Checkbox type="checkbox" checked={allSelected} onchange={toggleAll} class="h-4 w-4" aria-label="Select all products"/>
 							</th>
-
 							{#each columns as col (col.key)}
 								<th class="px-4 py-3">
 									{#if col.sortable}
@@ -525,14 +511,14 @@
 						{#if loading}
 							{#each [1, 2, 3, 4, 5] as n (n)}
 								<tr>
-									<td colspan="6" class="px-4 py-3">
+									<td colspan="9" class="px-4 py-3">
 										<div class="h-9 animate-pulse rounded-lg bg-gray-100"></div>
 									</td>
 								</tr>
 							{/each}
 						{:else if sorted.length === 0}
 							<tr>
-								<td colspan="6" class="px-5 py-16 text-center">
+								<td colspan="9" class="px-5 py-16 text-center">
 									<div class="mx-auto flex max-w-sm flex-col items-center">
 										<div class="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100 text-gray-400">
 											<SearchOutline class="h-6 w-6" />
@@ -550,17 +536,11 @@
 							{#each sorted as p (p.id)}
 								<tr class="border-b border-gray-100 transition-colors hover:bg-gray-50/70 {selected.includes(p.id) ? 'bg-sky-50/50' : ''}">
 									<!-- CHECKBOX -->
-									<td class="px-4 py-3">
-										<input
-											type="checkbox"
-											value={p.id}
-											bind:group={selected}
-											class="h-4 w-4 rounded border-gray-300 text-[#0278BD] focus:ring-[#0278BD]/30"
-											aria-label="Select {p.name}"
-										/>
+									<td class=" w-2 px-4 py-3">
+										<Checkbox value={p.id} bind:group={selected} aria-label="Select {p.name}" class="h-4 w-4"/>
 									</td>
 
-									<!-- PRODUCT NAME -->
+									<!-- PRODUCT IMAGE/NAME -->
 									<td class="px-4 py-3">
 										<div class="flex items-center gap-3">
 											{#if p.imageUrl && !imageErrors.has(p.id)}
@@ -589,21 +569,19 @@
 												</div>
 											{/if}
 
-											<p
-												class="max-w-[240px] truncate font-medium text-gray-800"
-												title={p.name}
-											>
+											<p class="max-w-[240px] truncate text-xs font-medium text-gray-800" title={p.name}>
 												{p.name}
 											</p>
 										</div>
 									</td>
+
 									<!-- PRICE -->
 									<td class="px-4 py-3 text-xs font-medium text-gray-700">{money(p.price)}</td>
 									
 									<!-- CATEGORY -->
 									<td class="px-4 py-3">
 										{#if p.categoryId}
-												<Badge color="blue"> {catName(p.categoryId)}</Badge>
+											<Badge color="blue"> {catName(p.categoryId)}</Badge>
 										{:else}
 											<Badge color="gray">No category</Badge>
 										{/if}
@@ -631,7 +609,7 @@
 									<td class="px-4 py-3">
 										<span class="font-medium text-gray-700">
 											{#if p.quantity}
-											<Badge color="gray">{p.quantity}</Badge>
+											<Badge color="green">{p.quantity}</Badge>
 											{:else}
 											<Badge color="red">out of stock</Badge>
 											{/if}
@@ -645,22 +623,20 @@
 										{#if confirmingId === p.id}
 											<div class="inline-flex items-center gap-2">
 												<span class="text-xs text-gray-500">Delete?</span>
-												<button
-													type="button"
-													onclick={() => removeProduct(p.id)}
-													disabled={deletingId === p.id}
-													class="rounded-lg bg-red-600 px-2.5 py-1 text-xs font-medium text-white transition hover:bg-red-700 disabled:opacity-50"
+												<Button type="button" onclick={() => removeProduct(p.id)} disabled={deletingId === p.id}
+													color="red"
+													class=" px-2.5 py-1 text-xs font-medium text-white transition  disabled:opacity-50"
 												>
 													{deletingId === p.id ? 'Deleting...' : 'Yes'}
-												</button>
-												<button
-													type="button"
+												</Button>
+												<Button type="button"
 													onclick={() => (confirmingId = null)}
 													disabled={deletingId === p.id}
-													class="rounded-lg px-2.5 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-100"
+													color="alternative"
+													class=" px-2.5 py-1 text-xs font-medium transition"
 												>
 													Cancel
-												</button>
+												</Button>
 											</div>
 										{:else}
 											<div class="inline-flex items-center justify-end gap-1">
@@ -711,10 +687,7 @@
 	</div>
 
 	{#if showAddModal}
-		<aside
-			class="product-drawer sticky top-4 flex w-full max-w-[430px] shrink-0 flex-col"
-			aria-label="Add product"
-		>
+		<aside class="product-drawer sticky top-4 flex w-full max-w-[430px] shrink-0 flex-col" aria-label="Add product">
 			<!-- DRAWER HEADER -->
 			<div class="product-drawer-header">
 				<div class="flex items-center gap-3">
@@ -729,20 +702,12 @@
 					</div>
 
 					<div>
-						<h2 class="text-base font-semibold text-gray-900">
-							Add Product
-						</h2>
-						<p class="text-xs text-gray-400">
-							Create a new product in your store
-						</p>
+						<h2 class="heading-2">Add Product</h2>
+						<p class="heading-4">Create a new product in your store</p>
 					</div>
 				</div>
 
-				<button
-					type="button"
-					onclick={closeAddDrawer}
-					disabled={adding}
-					aria-label="Close"
+				<button type="button" onclick={closeAddDrawer} disabled={adding} aria-label="Close"
 					class="rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
 				>
 					<CloseOutline class="h-5 w-5" />
@@ -750,9 +715,7 @@
 			</div>
 
 			<form onsubmit={addProduct} class="flex min-h-0 flex-1 flex-col">
-
 				<div class="product-drawer-body">
-
 					<!-- PRODUCT IMAGE -->
 					<section>
 						<div class="mb-3 flex items-center gap-2">
@@ -861,113 +824,40 @@
 						</div>
 
 						<div class="space-y-4">
-
 							<!-- PRODUCT NAME -->
 							<div>
-								<label for="product-name" class="product-label">
-									Product Name <span class="text-red-500">*</span>
-								</label>
-
-								<div class="relative">
-									<input
-										id="product-name"
-										bind:value={name}
-										required
-										placeholder="Enter product name"
-										class="product-input"
-									/>
-								</div>
+								<label for="product-name" class="label">Product Name <span class="text-red-500">*</span></label>
+								<Input id="product-name" bind:value={name} required placeholder="Enter product name"/>
 							</div>
 
-							<!-- PRICE + CATEGORY -->
+							<!-- PRICE + Quantity -->
 							<div class="grid grid-cols-2 gap-3">
-
 								<div>
-									<label for="product-price" class="product-label">
-										Price <span class="text-red-500">*</span>
-									</label>
-
-									<div class="relative">
-										<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
-											$
-										</span>
-
-										<input
-											id="product-price"
-											type="number"
-											min="0"
-											step="0.01"
-											bind:value={price}
-											required
-											placeholder="0.00"
-											class="product-input pl-8"
-										/>
-									</div>
+									<label for="product-price" class="label">Price <span class="text-red-500">*</span></label>
+									<Input id="product-price" type="number" bind:value={price} min="0" step="0.01"  required placeholder="0.00"/>
 								</div>
-									<div>
-										<label for="product-quantity" class="product-label">Quantity</label>
-										<input
-											id="product-quantity"
-											type="number"
-											min="0"
-											step="1"
-											bind:value={quantity}
-											placeholder="0"
-											class="product-input"
-										/>
-									</div>
+								<div>
+									<label for="product-quantity" class="label">Quantity</label>
+									<Input id="product-quantity" type="number" min="0" step="1"bind:value={quantity} placeholder="0"/>
 								</div>
+							</div>
 					
-
+							<!-- CATEGORY -->
 							<div>
-								<label for="product-category" class="product-label">
-										Category
-								</label>
-								<select
-										id="product-category"
-										bind:value={categoryId}
-										onchange={() => (subcategoryId = '')}
-										class="product-input"
-									>
-										<option value="">Select category</option>
-										{#each categories as c (c.id)}
-											<option value={c.id}>{c.name}</option>
-										{/each}
-								</select>
+								<label for="product-category" class="label">Category</label>
+								<Select id="product-category" items={categoryItems} bind:value={categoryId} placeholder="Select category" onchange={() => (subcategoryId = '')}/>
 							</div>
 
 							<!-- SUBCATEGORY -->
 							<div>
-								<label for="product-subcategory" class="product-label">
-									Subcategory
-								</label>
-
-								<select
-									id="product-subcategory"
-									bind:value={subcategoryId}
-									disabled={!categoryId || formSubs.length === 0}
-									class="product-input"
-								>
-									<option value="">Select subcategory</option>
-									{#each formSubs as s (s.id)}
-										<option value={s.id}>{s.name}</option>
-									{/each}
-								</select>
+								<label for="product-subcategory" class="label">Subcategory</label>
+								<Select id="product-subcategory" items={subcategoryItems} bind:value={subcategoryId} placeholder="Select subcategory" disabled={!categoryId || formSubs.length === 0}/>
 							</div>
 
 							<!-- DESCRIPTION -->
 							<div>
-								<label for="product-description" class="product-label">
-									Description
-								</label>
-
-								<textarea
-									id="product-description"
-									bind:value={description}
-									rows="3"
-									placeholder="Enter product description..."
-									class="product-input resize-none"
-								></textarea>
+								<label for="product-description" class="label">Description</label>
+								<Textarea id="product-description" bind:value={description} rows={3} placeholder="Enter product description..." class="w-full resize-none"/>
 							</div>
 
 							<!-- ERROR -->
@@ -977,7 +867,6 @@
 									<p>{formError}</p>
 								</div>
 							{/if}
-
 						</div>
 					</section>
 
@@ -985,32 +874,157 @@
 
 				<!-- FIXED FOOTER -->
 				<div class="product-drawer-footer">
-					<Button
-						type="button"
-						color="light"
-						onclick={closeAddDrawer}
-						disabled={adding}
-						class="!rounded-lg !px-5 !py-2.5"
-					>
+					<Button type="button" color="light" onclick={closeAddDrawer} disabled={adding} class="!rounded-lg !px-5 !py-2.5">
 						Cancel
 					</Button>
 
-					<Button
-						type="submit"
-						class="btn-secondary !rounded-lg !px-5 !py-2.5"
-						disabled={adding}
-					>
+					<Button type="submit" class="!rounded-lg !px-5 !py-2.5" disabled={adding}>
 						{#if adding}
 							<span class="animate-spin">◌</span>
-							Adding...
+							Saving...
 						{:else}
-							<PlusOutline class="h-4 w-4"/>
-							Add Product
+							Save
 						{/if}
 					</Button>
 				</div>
-
 			</form>
 		</aside>
 	{/if}
 </div>
+
+<style>
+	.product-drawer {
+    position: sticky;
+    top: 1rem;
+    max-height: calc(100vh - 2rem);
+    width: 430px;
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+    border-radius: 1rem;
+    background: #ffffff;
+    box-shadow: 0 8px 30px rgba(15, 23, 42, 0.06);
+}
+
+/* HEADER */
+
+.product-drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.1rem 1.25rem;
+    border-bottom: 1px solid #f1f5f9;
+    background: #ffffff;
+}
+
+/* SCROLLABLE BODY */
+
+.product-drawer-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.product-drawer-body::-webkit-scrollbar {
+    width: 5px;
+}
+
+.product-drawer-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.product-drawer-body::-webkit-scrollbar-thumb {
+    border-radius: 10px;
+    background: #d1d5db;
+}
+
+/* IMAGE UPLOAD */
+
+.product-upload-area {
+    display: flex;
+    min-height: 168px;
+    width: 100%;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 1.5px dashed #cbd5e1;
+    border-radius: 0.85rem;
+    background: #f8fafc;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.product-upload-area:hover {
+    border-color: var(--color-secondary);
+    background: #f0f8fd;
+}
+
+.product-upload-icon {
+    position: relative;
+    display: flex;
+    height: 64px;
+    width: 64px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.85rem;
+    background: #e6f1f8;
+    color: #5b9fd1;
+    transition: transform 0.2s ease;
+}
+
+.product-upload-area:hover .product-upload-icon {
+    transform: translateY(-3px);
+    color: #0278bd;
+}
+
+.product-input:disabled {
+    cursor: not-allowed;
+    background: #f8fafc;
+    color: #9ca3af;
+}
+
+
+/* FOOTER */
+
+.product-drawer-footer {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    border-top: 1px solid #f1f5f9;
+    background: #ffffff;
+    padding: 1rem 1.25rem;
+}
+
+/* RESPONSIVE */
+
+@media (max-width: 1279px) {
+    .product-drawer {
+        width: 390px;
+    }
+}
+
+@media (max-width: 1023px) {
+    .product-drawer {
+        position: relative;
+        top: auto;
+        width: 100%;
+        max-width: 100%;
+        max-height: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .product-drawer-body {
+        padding: 1rem;
+    }
+
+    .product-drawer-footer {
+        padding: 1rem;
+    }
+}
+</style>
