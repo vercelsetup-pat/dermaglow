@@ -39,8 +39,11 @@
 		let editSubcategoryId = $state('');
 		let editName = $state('');
 		let editDescription = $state('');
+		let editQuantity = $state<string | number>('');
 		let editError = $state('');
 		let imagePreview = $state('');
+		let editImageFile = $state<File | null>(null);
+		let editImagePreview = $state('');
 	//#endregion
 
 	//#region Other Varianles
@@ -50,7 +53,7 @@
 		let price = $state<string | number>('');
 		let quantity = $state<string | number>('');
 		let editing = $state<Product | null>(null);
-		let editPrice = $state<number | string | null>('');
+		let editPrice = $state<string | number>('');
 		let confirmingId = $state<string | null>(null);
 		let deletingId = $state<string | null>(null);
 		let toast = $state<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -95,6 +98,8 @@
 			products.filter((p) => Number(p.quantity) > 5).length
 		);
 
+		const editSubs = $derived(subcategories.filter((s) => s.categoryId === editCategoryId));
+		const editSubcategoryItems = $derived(editSubs.map((s) => ({ value: s.id, name: s.name })));
 		const categoryItems = $derived(categories.map((c) => ({ value: c.id, name: c.name })));
 		const subcategoryItems = $derived(formSubs.map((s) => ({ value: s.id, name: s.name })));
 		const lowStock = $derived(products.filter( (p) => Number(p.quantity) > 0 && Number(p.quantity) <= 5).length);
@@ -184,22 +189,56 @@
 			return Number.isFinite(n) && n >= 0;
 		}
 
+		function handleEditImageChange(event: Event) {
+			const input = event.currentTarget as HTMLInputElement;
+			const file = input.files?.[0];
+			if (!file) return;
+
+			editError = '';
+
+			if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+				editError = 'Please upload a JPG, PNG, or WEBP image.';
+				input.value = '';
+				return;
+			}
+
+			if (file.size > MAX_IMAGE_SIZE) {
+				editError = 'Image size must not exceed 5 MB.';
+				input.value = '';
+				return;
+			}
+
+			if (editImagePreview) URL.revokeObjectURL(editImagePreview);
+			editImageFile = file;
+			editImagePreview = URL.createObjectURL(file);
+		}
+
+		function clearEditImage() {
+			if (editImagePreview) URL.revokeObjectURL(editImagePreview);
+			editImageFile = null;
+			editImagePreview = '';
+		}
+
 		function openEdit(p: Product) {
+			clearEditImage();
 			showAddModal = false;
 			editing = p;
 			editCategoryId = p.categoryId ?? '';
 			editSubcategoryId = p.subcategoryId ?? '';
 			editName = p.name;
 			editPrice = String(p.price);
+			editQuantity = String(p.quantity ?? 0);
 			editDescription = p.description ?? '';
 			editError = '';
 		}
 
 		function closeEdit() {
 			if (saving) return;
+			clearEditImage();
 			editing = null;
+			editError = '';
 		}
-
+		
 		function toggleAll() {
 			selected = allSelected ? [] : sorted.map((p) => p.id);
 		}
@@ -299,6 +338,7 @@
 		async function saveEdit(e: SubmitEvent) {
 			e.preventDefault();
 			if (!editing) return;
+
 			if (!editName.trim()) {
 				editError = 'Enter a product name.';
 				return;
@@ -307,20 +347,46 @@
 				editError = 'Enter a valid price (0 or more).';
 				return;
 			}
+			if (!validQuantity(editQuantity)) {
+				editError = 'Quantity must be a whole number (0 or more).';
+				return;
+			}
+
 			saving = true;
 			editError = '';
 			try {
-				const updated = await api<Product>(`${API}/${editing.id}`, {
-					method: 'PATCH',
-					body: JSON.stringify({
-						categoryId: editCategoryId || null,
-						subcategoryId: editCategoryId ? editSubcategoryId || null : null,
-						name: editName,
-						price: editPrice,
-						description: editDescription
-					})
-				});
+				const quantityValue = String(editQuantity).trim() === '' ? 0 : Number(editQuantity);
+				let init: RequestInit;
+
+				if (editImageFile) {
+					const fd = new FormData();
+					fd.append('name', editName.trim());
+					fd.append('price', String(editPrice));
+					fd.append('quantity', String(quantityValue));
+					fd.append('description', editDescription);
+					fd.append('categoryId', editCategoryId);
+					fd.append('subcategoryId', editCategoryId ? editSubcategoryId : '');
+					fd.append('image', editImageFile);
+					init = { method: 'PATCH', body: fd };
+				} else {
+					init = {
+						method: 'PATCH',
+						body: JSON.stringify({
+							categoryId: editCategoryId || null,
+							subcategoryId: editCategoryId ? editSubcategoryId || null : null,
+							name: editName.trim(),
+							price: editPrice,
+							quantity: quantityValue,
+							description: editDescription
+						})
+					};
+				}
+
+				const updated = await api<Product>(`${API}/${editing.id}`, init);
 				products = products.map((p) => (p.id === updated.id ? { ...p, ...updated } : p));
+				imageErrors = new Set([...imageErrors].filter((id) => id !== updated.id));
+
+				clearEditImage();
 				editing = null;
 				notify('success', 'Changes saved.');
 			} catch (err) {
@@ -377,6 +443,11 @@
         !!filterSubId ||
         !!search.trim()
     );
+
+	const currentImage = $derived(
+		editing?.imageUrl && !imageErrors.has(editing.id) ? editing.imageUrl : ''
+	);
+	const shownImage = $derived(editImagePreview || currentImage);
 </script>
 
 <svelte:window onkeydown={(e) => e.key === 'Escape' && closeEdit()} />
@@ -619,12 +690,11 @@
 									<td class="px-4 py-3 text-right">
 										{#if confirmingId === p.id}
 											<div class="inline-flex items-center gap-2">
-												<span class="text-xs text-gray-500">Delete?</span>
 												<Button type="button" onclick={() => removeProduct(p.id)} disabled={deletingId === p.id}
 													color="red"
 													class=" px-2.5 py-1 text-xs font-medium text-white transition  disabled:opacity-50"
 												>
-													{deletingId === p.id ? 'Deleting...' : 'Yes'}
+													{deletingId === p.id ? 'Deleting...' : 'Delete?'}
 												</Button>
 												<Button type="button"
 													onclick={() => (confirmingId = null)}
@@ -887,6 +957,146 @@
 			</form>
 		</aside>
 	{/if}
+	
+	{#if editing}
+		<aside class="product-drawer" aria-label="Edit product">
+			<!-- HEADER -->
+			<div class="product-drawer-header">
+				<div class="flex items-center gap-3">
+					<div class="flex h-10 w-10 items-center justify-center rounded-xl bg-[#E6F1F8] text-[#0278BD]">
+						<EditOutline class="h-6 w-6" />
+					</div>
+					<div>
+						<h2 class="heading-2">Edit Product</h2>
+						<p class="heading-4 max-w-[240px] truncate">{editing.name}</p>
+					</div>
+				</div>
+
+				<button type="button" onclick={closeEdit} disabled={saving} aria-label="Close"
+					class="rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700">
+					<CloseOutline class="h-5 w-5" />
+				</button>
+			</div>
+
+			<form onsubmit={saveEdit} class="flex min-h-0 flex-1 flex-col">
+				<div class="product-drawer-body">
+					<!-- CURRENT IMAGE (read-only for now) -->
+					<div class="mb-3 flex items-center gap-2">
+						<span class="flex h-6 w-6 items-center justify-center rounded-full bg-[#0278BD] text-xs font-semibold text-white">
+								1
+						</span>
+						<h3 class="text-sm font-semibold text-gray-800">Product Image</h3>
+					</div>
+					{#if shownImage}
+						<div class="rounded-xl border border-gray-200 bg-gray-50 p-3">
+							<div class="flex items-center gap-3">
+								<img src={shownImage} alt={editing.name}
+									class="h-20 w-20 rounded-lg border border-gray-200 object-cover" />
+								<div class="min-w-0 flex-1">
+									<p class="truncate text-sm font-medium text-gray-800">
+										{editImageFile ? editImageFile.name : 'Current image'}
+									</p>
+									<p class="mt-1 text-xs text-gray-400">
+										{editImageFile
+											? `${(editImageFile.size / (1024 * 1024)).toFixed(2)} MB · will replace the current image`
+											: 'Upload a new one to replace it'}
+									</p>
+									<div class="mt-2 flex items-center gap-3">
+										<label for="edit-image" class="cursor-pointer text-xs font-semibold text-[#0278BD] hover:underline">
+											Change image
+										</label>
+										{#if editImageFile}
+											<button type="button" onclick={clearEditImage}
+												class="text-xs font-medium text-red-500 hover:text-red-600">
+												Undo
+											</button>
+										{/if}
+									</div>
+								</div>
+							</div>
+						</div>
+					{:else}
+						<label for="edit-image" class="product-upload-area group">
+							<div class="product-upload-icon">
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" viewBox="0 0 24 24"
+									fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+									<rect x="3" y="3" width="18" height="18" rx="3"/>
+									<circle cx="8.5" cy="8.5" r="1.5"/>
+									<path d="m21 15-5-5L5 21"/>
+								</svg>
+								<span class="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-[#0278BD] text-white">
+									<PlusOutline class="h-4 w-4"/>
+								</span>
+							</div>
+							<span class="mt-3 text-sm font-semibold text-gray-700">Click to upload an image</span>
+							<span class="mt-1 text-xs text-gray-400">PNG, JPG or WEBP · Maximum 5 MB</span>
+						</label>
+					{/if}
+
+					<input id="edit-image" type="file" accept="image/png,image/jpeg,image/webp" class="hidden" onchange={handleEditImageChange} />
+
+					<div class="space-y-4">
+						<div>
+							<label for="edit-name" class="label">Product Name <span class="text-red-500">*</span></label>
+							<Input id="edit-name" bind:value={editName} required placeholder="Enter product name" />
+						</div>
+
+						<div class="grid grid-cols-2 gap-3">
+							<div>
+								<label for="edit-price" class="label">Price <span class="text-red-500">*</span></label>
+								<Input id="edit-price" type="number" bind:value={editPrice} min="0" step="0.01" required placeholder="0.00" />
+							</div>
+							<div>
+								<label for="edit-quantity" class="label">Quantity</label>
+								<Input id="edit-quantity" type="number" min="0" step="1" bind:value={editQuantity} placeholder="0" />
+							</div>
+						</div>
+
+						<div>
+							<label for="edit-category" class="label">Category</label>
+							<Select id="edit-category" items={categoryItems} bind:value={editCategoryId}
+								placeholder="No category" onchange={() => (editSubcategoryId = '')} />
+						</div>
+
+						<div>
+							<label for="edit-subcategory" class="label">Subcategory</label>
+							<Select id="edit-subcategory" items={editSubcategoryItems} bind:value={editSubcategoryId}
+								placeholder="Select subcategory"
+								disabled={!editCategoryId || editSubs.length === 0} />
+						</div>
+
+						<div>
+							<label for="edit-description" class="label">Description</label>
+							<Textarea id="edit-description" bind:value={editDescription} rows={3}
+								placeholder="Enter product description..." class="w-full resize-none" />
+						</div>
+
+						{#if editError}
+							<div class="flex items-start gap-2 rounded-lg border border-red-100 bg-red-50 px-3 py-2.5 text-sm text-red-600">
+								<ExclamationCircleOutline class="mt-0.5 h-4 w-4 shrink-0" />
+								<p>{editError}</p>
+							</div>
+						{/if}
+					</div>
+				</div>
+
+				<!-- FOOTER -->
+				<div class="product-drawer-footer">
+					<Button type="button" color="light" onclick={closeEdit} disabled={saving} class="!rounded-lg !px-5 !py-2.5">
+						Cancel
+					</Button>
+					<Button type="submit" class="!rounded-lg !px-5 !py-2.5" disabled={saving}>
+						{#if saving}
+							<span class="animate-spin">◌</span>
+							Saving...
+						{:else}
+							Save changes
+						{/if}
+					</Button>
+				</div>
+			</form>
+		</aside>
+	{/if}
 </div>
 
 <style>
@@ -916,8 +1126,6 @@
     background: #ffffff;
 }
 
-/* SCROLLABLE BODY */
-
 .product-drawer-body {
     flex: 1;
     min-height: 0;
@@ -941,8 +1149,6 @@
     border-radius: 10px;
     background: #d1d5db;
 }
-
-/* IMAGE UPLOAD */
 
 .product-upload-area {
     display: flex;
@@ -980,13 +1186,6 @@
     transform: translateY(-3px);
     color: #0278bd;
 }
-
-.product-input:disabled {
-    cursor: not-allowed;
-    background: #f8fafc;
-    color: #9ca3af;
-}
-
 
 /* FOOTER */
 
