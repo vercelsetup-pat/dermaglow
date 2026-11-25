@@ -19,13 +19,6 @@
 
 	
 
-	function validQuantity(value: number | string | null) {
-		const s = String(value ?? '').trim();
-		if (s === '') return true; // empty = 0, same as the API
-		const n = Number(s);
-		return Number.isInteger(n) && n >= 0;
-	}
-
 	//#region Boolean Variables
 		let loading = $state(true);
 		let saving = $state(false);
@@ -160,6 +153,12 @@
 			imagePreview = URL.createObjectURL(file);
 		}
 
+		function validQuantity(value: number | string | null) {
+			const s = String(value ?? '').trim();
+			if (s === '') return true; // empty = 0, same as the API
+			const n = Number(s);
+			return Number.isInteger(n) && n >= 0;
+		}
 		function removeImage() {
 			if (imagePreview) URL.revokeObjectURL(imagePreview);
 			imageFile = null;
@@ -463,9 +462,9 @@
 
 				<div class="flex flex-wrap items-center gap-2">
 					{#if hasActiveFilters}
-						<button type="button" onclick={clearFilters} class="rounded-lg px-3 py-2 text-xs font-medium text-gray-500 transition hover:bg-gray-100 hover:text-gray-800">
+						<Button type="button" onclick={clearFilters} color="alternative" class="px-3 py-2 text-xs font-medium">
 							Clear filters
-						</button>
+						</Button>
 					{/if}
 
 					<Button type="button" onclick={() => showFilters = !showFilters} color="light" class="inline-flex items-center gap-2 px-3 py-2 text-sm">

@@ -122,7 +122,6 @@ textarea::placeholder{
     }
 }
 
-/* Extra-large screens (1280px and above) */
 @media (min-width: 1280px) {
     .card{
         grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -130,13 +129,13 @@ textarea::placeholder{
 }
 
 .txt-xs {
-    font-size: 0.75rem; /* text-xs */
-	color: #6b7280; /* text-gray-500 */
+    font-size: 0.75rem; 
+	color: #6b7280; 
 }
 .txt-sm {
-    font-size: 0.875rem; /* text-sm */
-	font-weight: 600; /* font-semibold */
-	color: #111827; /* text-gray-900 */
+    font-size: 0.875rem; 
+	font-weight: 600;
+	color: #111827; 
 }
 
 /*TABLE GLOBAL STYLES*/
@@ -263,8 +262,5 @@ table input[type="checkbox"] {
 }
 
 
-/* =========================================
-   PRODUCT DRAWER
-========================================= */
 
 
