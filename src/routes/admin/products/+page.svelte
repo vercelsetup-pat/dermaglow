@@ -8,7 +8,6 @@
         CheckCircleOutline,
         ExclamationCircleOutline,
         CloseCircleOutline,
-        DotsVerticalOutline,
         EditOutline,
         SearchOutline,
         ChevronDownOutline,
@@ -16,70 +15,7 @@
         CloseOutline,
 		ArrowDownToBracketOutline
     } from 'flowbite-svelte-icons';
- 	import { Dropdown, DropdownItem, Button, Toggle, Badge, Modal, Drawer } from 'flowbite-svelte';
-
-	type SortKey = 'name' | 'price' | 'category' | 'subcategory' | 'description' | 'quantity' | 'status';
-
-	type Column = {
-		key: SortKey;
-		label: string;
-		sortable?: boolean;
-	};
-
-	let imageFile = $state<File | null>(null);
-	let imagePreview = $state('');
-	const MAX_IMAGE_SIZE = 5 * 1024 * 1024; 
-
-	const columns: Column[] = [
-		{ key: 'name', label: 'Product Name', sortable: true },
-		{ key: 'price', label: 'Price', sortable: true },
-		{ key: 'category', label: 'Category', sortable: true },
-		{ key: 'subcategory', label: 'Sub Category', sortable: true },
-		{ key: 'description', label: 'Description', sortable: true },
-		{ key: 'quantity', label: 'Quantity', sortable: true },
-		{ key: 'status', label: 'Status', sortable: true }
-	];
-	
-	// +1 checkbox column, +1 actions column
-	const colSpan = $derived(columns.length + 2);
-
-	function handleImageChange(event: Event) {
-		const input = event.currentTarget as HTMLInputElement;
-		const file = input.files?.[0];
-
-		if (!file) return;
-
-		formError = '';
-
-		if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-			formError = 'Please upload a JPG, PNG, or WEBP image.';
-			input.value = '';
-			return;
-		}
-
-		if (file.size > MAX_IMAGE_SIZE) {
-			formError = 'Image size must not exceed 5 MB.';
-			input.value = '';
-			return;
-		}
-
-		if (imagePreview) URL.revokeObjectURL(imagePreview);
-
-		imageFile = file;
-		imagePreview = URL.createObjectURL(file);
-	}
-
-	function removeImage() {
-		if (imagePreview) URL.revokeObjectURL(imagePreview);
-
-		imageFile = null;
-		imagePreview = '';
-	}
-
-	const CATEGORIES_API = '/api/categories';
-	const SUBCATEGORIES_API = '/api/subcategories';
-	const API = '/api/products';
-	const NONE = '__none__'; 
+ 	import { Button, Toggle, Badge } from 'flowbite-svelte';
 
 	//#region Boolean Variables
 		let loading = $state(true);
@@ -104,6 +40,7 @@
 		let editName = $state('');
 		let editDescription = $state('');
 		let editError = $state('');
+		let imagePreview = $state('');
 	//#endregion
 
 	//#region Other Varianles
@@ -117,66 +54,118 @@
 		let deletingId = $state<string | null>(null);
 		let toast = $state<{ type: 'success' | 'error'; text: string } | null>(null);
 		let toastTimer: ReturnType<typeof setTimeout> | undefined;
+		let selected = $state<string[]>([]);
+		let sortDir = $state<'asc' | 'desc'>('desc');
+		let sortKey = $state<SortKey>('name');
+		let imageFile = $state<File | null>(null);
 	//#endregion
 	
-	const categoryNames = $derived(new Map(categories.map((c) => [c.id, c.name])));
-	const subNames = $derived(new Map(subcategories.map((s) => [s.id, s.name])));
-	let imageErrors = $state(new Set<string>());
-	const formSubs = $derived(subcategories.filter((s) => s.categoryId === categoryId));
-	const editSubs = $derived(subcategories.filter((s) => s.categoryId === editCategoryId));
-	const filterSubs = $derived(subcategories.filter((s) => s.categoryId === filterCategoryId));
-	const totalProducts = $derived(products.length);
-	const inStock = $derived(
-        products.filter((p) => Number(p.quantity) > 5).length
-    );
+	//#region Variables Tyes & Constant
+		type SortKey = 'name' | 'price' | 'category' | 'subcategory' | 'description' | 'quantity' | 'status';
+		type Column = {
+			key: SortKey;
+			label: string;
+			sortable?: boolean;
+		};
 
-	const lowStock = $derived(
-        products.filter(
-            (p) => Number(p.quantity) > 0 && Number(p.quantity) <= 5
-        ).length
-    );
+		const CATEGORIES_API = '/api/categories';
+		const SUBCATEGORIES_API = '/api/subcategories';
+		const API = '/api/products';
+		const NONE = '__none__'; 
+		const MAX_IMAGE_SIZE = 5 * 1024 * 1024; 
 
-    const outOfStock = $derived(
-        products.filter((p) => Number(p.quantity) <= 0).length
-    );
+		const columns: Column[] = [
+			{ key: 'name', label: 'Product Name', sortable: true },
+			{ key: 'price', label: 'Price', sortable: true },
+			{ key: 'category', label: 'Category', sortable: true },
+			{ key: 'subcategory', label: 'Sub Category', sortable: true },
+			{ key: 'description', label: 'Description', sortable: true },
+			{ key: 'quantity', label: 'Quantity', sortable: true },
+			{ key: 'status', label: 'Status', sortable: true }
+		];
+	
 
-	const catName = (id: string | null) => (id ? (categoryNames.get(id) ?? 'Unknown category') : '');
-	const subName = (id: string | null) => (id ? (subNames.get(id) ?? 'Unknown subcategory') : '');
+		const categoryNames = $derived(new Map(categories.map((c) => [c.id, c.name])));
+		const subNames = $derived(new Map(subcategories.map((s) => [s.id, s.name])));
+		let imageErrors = $state(new Set<string>());
+		const formSubs = $derived(subcategories.filter((s) => s.categoryId === categoryId));
+		const totalProducts = $derived(products.length);
+		const inStock = $derived(
+			products.filter((p) => Number(p.quantity) > 5).length
+		);
 
-	const filtered = $derived.by(() => {
-		const q = search.trim().toLowerCase();
-		return products.filter((p) => {
-			if (filterCategoryId === NONE) {
-				if (p.categoryId) return false;
-			} else if (filterCategoryId && p.categoryId !== filterCategoryId) {
-				return false;
-			}
-			if (filterSubId === NONE && p.subcategoryId) return false;
-			if (filterSubId && filterSubId !== NONE && p.subcategoryId !== filterSubId) return false;
-			if (!q) return true;
-			return (
-				p.name.toLowerCase().includes(q) ||
-				(p.description ?? '').toLowerCase().includes(q) ||
-				catName(p.categoryId).toLowerCase().includes(q) ||
-				subName(p.subcategoryId).toLowerCase().includes(q)
-			);
+		const lowStock = $derived(products.filter( (p) => Number(p.quantity) > 0 && Number(p.quantity) <= 5).length);
+		const outOfStock = $derived(products.filter((p) => Number(p.quantity) <= 0).length);
+		const catName = (id: string | null) => (id ? (categoryNames.get(id) ?? 'Unknown category') : '');
+		const subName = (id: string | null) => (id ? (subNames.get(id) ?? 'Unknown subcategory') : '');
+		const money = (v: number | string) => `$${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+		const filtered = $derived.by(() => {
+			const q = search.trim().toLowerCase();
+			return products.filter((p) => {
+				if (filterCategoryId === NONE) {
+					if (p.categoryId) return false;
+				} else if (filterCategoryId && p.categoryId !== filterCategoryId) {
+					return false;
+				}
+				if (filterSubId === NONE && p.subcategoryId) return false;
+				if (filterSubId && filterSubId !== NONE && p.subcategoryId !== filterSubId) return false;
+				if (!q) return true;
+				return (
+					p.name.toLowerCase().includes(q) ||
+					(p.description ?? '').toLowerCase().includes(q) ||
+					catName(p.categoryId).toLowerCase().includes(q) ||
+					subName(p.subcategoryId).toLowerCase().includes(q)
+				);
+			});
 		});
-	});
-
-	const money = (v: number | string) => `$${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+	//#endregion
 
 	//#region Functions
+		function handleImageChange(event: Event) {
+			const input = event.currentTarget as HTMLInputElement;
+			const file = input.files?.[0];
+
+			if (!file) return;
+
+			formError = '';
+
+			if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+				formError = 'Please upload a JPG, PNG, or WEBP image.';
+				input.value = '';
+				return;
+			}
+
+			if (file.size > MAX_IMAGE_SIZE) {
+				formError = 'Image size must not exceed 5 MB.';
+				input.value = '';
+				return;
+			}
+
+			if (imagePreview) URL.revokeObjectURL(imagePreview);
+
+			imageFile = file;
+			imagePreview = URL.createObjectURL(file);
+		}
+
+		function removeImage() {
+			if (imagePreview) URL.revokeObjectURL(imagePreview);
+			imageFile = null;
+			imagePreview = '';
+		}
+
+		function sortBy(key: SortKey) {
+			if (sortKey === key) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+			else {
+				sortKey = key;
+				sortDir = 'asc';
+			}
+		}
+
 		function notify(type: 'success' | 'error', text: string) {
 			toast = { type, text };
 			clearTimeout(toastTimer);
 			toastTimer = setTimeout(() => (toast = null), 3000);
-		}
-
-		function formatDate(value?: string | null) {
-			if (!value) return '—';
-			const d = new Date(value);
-			if (Number.isNaN(d.getTime())) return '—';
-			return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 		}
 
 		function validPrice(value: number | string | null) {
@@ -200,6 +189,23 @@
 		function closeEdit() {
 			if (saving) return;
 			editing = null;
+		}
+
+		function toggleAll() {
+			selected = allSelected ? [] : sorted.map((p) => p.id);
+		}
+
+		function clearFilters() {
+			filterCategoryId = '';
+			filterSubId = '';
+			search = '';
+		}
+
+		function closeAddDrawer() {
+			if (adding) return;
+			showAddModal = false;
+			formError = '';
+			removeImage();
 		}
 	//#endregion
 
@@ -335,18 +341,6 @@
 		}
 	});
 
-	let selected = $state<string[]>([]);
-	let sortDir = $state<'asc' | 'desc'>('desc');
-	let sortKey = $state<SortKey>('name');
-
-	function sortBy(key: SortKey) {
-		if (sortKey === key) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
-		else {
-			sortKey = key;
-			sortDir = 'asc';
-		}
-	}
-
 	const sorted = $derived.by(() => {
 		const dir = sortDir === 'asc' ? 1 : -1;
 		return [...filtered].sort((a, b) => {
@@ -360,31 +354,11 @@
 	});
 
 	const allSelected = $derived(sorted.length > 0 && sorted.every((p) => selected.includes(p.id)));
-	function toggleAll() {
-		selected = allSelected ? [] : sorted.map((p) => p.id);
-	}
-
-
-	function clearFilters() {
-        filterCategoryId = '';
-        filterSubId = '';
-        search = '';
-    }
-
-	function closeAddDrawer() {
-		if (adding) return;
-		showAddModal = false;
-		formError = '';
-		removeImage();
-	}
-
     const hasActiveFilters = $derived(
         !!filterCategoryId ||
         !!filterSubId ||
         !!search.trim()
     );
-	const initials = (n: string) => n.trim().slice(0, 2).toUpperCase();
-	
 </script>
 
 <svelte:window onkeydown={(e) => e.key === 'Escape' && closeEdit()} />
