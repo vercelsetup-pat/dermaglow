@@ -189,6 +189,7 @@
 		}
 
 		function openEdit(p: Product) {
+			showAddModal = false;
 			editing = p;
 			editCategoryId = p.categoryId ?? '';
 			editSubcategoryId = p.subcategoryId ?? '';
@@ -609,7 +610,6 @@
 									<!-- PRICE -->
 									<td class="px-4 py-3 text-xs font-medium text-gray-700">{money(p.price)}</td>
 									
-
 									<!-- CATEGORY -->
 									<td class="px-4 py-3">
 										{#if p.categoryId}
@@ -652,19 +652,46 @@
 
 									<!-- ACTIONS -->
 									<td class="px-4 py-3 text-right">
-										<div class="inline-flex items-center justify-end gap-1">
-											<button type="button" aria-label="Edit {p.name}" class="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-[#0278BD]">
-												<EditOutline class="h-5 w-5" />
-											</button>
-
-											<button
-												type="button"
-												aria-label="Delete {p.name}"
-												class="rounded-lg p-1.5 text-gray-400 transition hover:bg-red-50 hover:text-red-600"
-											>
-												<TrashBinOutline class="h-5 w-5" />
-											</button>
-										</div>
+										{#if confirmingId === p.id}
+											<div class="inline-flex items-center gap-2">
+												<span class="text-xs text-gray-500">Delete?</span>
+												<button
+													type="button"
+													onclick={() => removeProduct(p.id)}
+													disabled={deletingId === p.id}
+													class="rounded-lg bg-red-600 px-2.5 py-1 text-xs font-medium text-white transition hover:bg-red-700 disabled:opacity-50"
+												>
+													{deletingId === p.id ? 'Deleting...' : 'Yes'}
+												</button>
+												<button
+													type="button"
+													onclick={() => (confirmingId = null)}
+													disabled={deletingId === p.id}
+													class="rounded-lg px-2.5 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-100"
+												>
+													Cancel
+												</button>
+											</div>
+										{:else}
+											<div class="inline-flex items-center justify-end gap-1">
+												<button
+													type="button"
+													onclick={() => openEdit(p)}
+													aria-label="Edit {p.name}"
+													class="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-[#0278BD]"
+												>
+													<EditOutline class="h-5 w-5" />
+												</button>
+												<button
+													type="button"
+													onclick={() => (confirmingId = p.id)}
+													aria-label="Delete {p.name}"
+													class="rounded-lg p-1.5 text-gray-400 transition hover:bg-red-50 hover:text-red-600"
+												>
+													<TrashBinOutline class="h-5 w-5" />
+												</button>
+											</div>
+										{/if}
 									</td>
 								</tr>
 							{/each}
