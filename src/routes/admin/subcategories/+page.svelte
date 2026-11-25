@@ -586,7 +586,7 @@
 				</div>
 
 				<div class="flex justify-end gap-3 border-t border-gray-100 bg-white px-5 py-4">
-					<Button type="button" color="light" onclick={closeAdd} disabled={adding}>Close</Button>
+					<Button type="button" color="light" onclick={closeAdd} disabled={adding}>Cancel</Button>
 					<Button type="submit" disabled={adding || loading || categories.length === 0}>
 						{adding ? 'Saving...' : 'Save'}
 					</Button>
@@ -626,16 +626,10 @@
 
 					<div>
 						<div class="mb-2 flex items-center justify-between">
-							<label for="edit-desc" class="text-sm font-medium text-gray-700">Description</label>
+							<label for="edit-desc" class="label">Description</label>
 							<span class="text-xs text-gray-400">{editDescription.length}/200</span>
 						</div>
-						<textarea
-							id="edit-desc"
-							class=" resize-none"
-							rows="3"
-							maxlength="200"
-							bind:value={editDescription}
-						></textarea>
+						<Textarea id="edit-desc" class="w-full resize-none" rows={3} bind:value={editDescription}/>
 					</div>
 
 					{#if editError}
