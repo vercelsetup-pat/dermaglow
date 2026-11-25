@@ -404,7 +404,7 @@
 				</div>
 			</div>
 
-			<Button type="button" class="btn-secondary flex items-center gap-2" onclick={() => showAddModal = true}>
+			<Button type="button" class="btn-secondary flex items-center gap-2" onclick={() => { editing = null; showAddModal = true; }}>
 				<PlusOutline class="h-4 w-4" />
 				Add Product
 			</Button>
