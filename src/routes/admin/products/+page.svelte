@@ -17,6 +17,15 @@
     } from 'flowbite-svelte-icons';
  	import { Button, Toggle, Badge } from 'flowbite-svelte';
 
+	let quantity = $state<number | string | null>('');
+
+	function validQuantity(value: number | string | null) {
+		const s = String(value ?? '').trim();
+		if (s === '') return true; // empty = 0, same as the API
+		const n = Number(s);
+		return Number.isInteger(n) && n >= 0;
+	}
+
 	//#region Boolean Variables
 		let loading = $state(true);
 		let saving = $state(false);
@@ -211,19 +220,20 @@
 
 	//#region Async Functions
 		async function api<T>(url: string, init?: RequestInit): Promise<T> {
-	const isForm = init?.body instanceof FormData;
+			const isForm = init?.body instanceof FormData;
 
-	const res = await fetch(url, {
-		...init,
-		headers: isForm ? init?.headers : { 'Content-Type': 'application/json', ...init?.headers }
-	});
+			const res = await fetch(url, {
+				...init,
+				headers: isForm ? init?.headers : { 'Content-Type': 'application/json', ...init?.headers }
+			});
 
-	const body = await res.json().catch(() => null);
-	if (!res.ok || !body?.success) {
-		throw new Error(body?.message ?? 'Something went wrong. Please try again.');
-	}
-	return body.data as T;
-}
+			const body = await res.json().catch(() => null);
+			if (!res.ok || !body?.success) {
+				throw new Error(body?.message ?? 'Something went wrong. Please try again.');
+			}
+			return body.data as T;
+		}
+
 		async function addProduct(e: SubmitEvent) {
 			e.preventDefault();
 			formError = '';
@@ -238,6 +248,12 @@
 				return;
 			}
 
+			if (!validQuantity(quantity)) {
+				formError = 'Quantity must be a whole number (0 or more).';
+				return;
+			}
+
+			
 			adding = true;
 
 			try {
@@ -248,11 +264,13 @@
 				formData.append('description', description);
 				formData.append('categoryId', categoryId);
 				formData.append('subcategoryId', categoryId ? subcategoryId : '');
+				formData.append('quantity', String(quantity ?? '') || '0');
 
 				if (imageFile) {
 					formData.append('image', imageFile);
 				}
 
+				
 				const created = await api<Product>(API, {
 					method: 'POST',
 					body: formData
@@ -692,298 +710,307 @@
 		</section>
 	</div>
 
-	
-{#if showAddModal}
-	<aside
-		class="product-drawer sticky top-4 flex w-full max-w-[430px] shrink-0 flex-col"
-		aria-label="Add product"
-	>
-		<!-- DRAWER HEADER -->
-		<div class="product-drawer-header">
-			<div class="flex items-center gap-3">
-				<div class="flex h-10 w-10 items-center justify-center rounded-xl bg-[#E6F1F8] text-[#0278BD]">
-					<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6"
-						viewBox="0 0 24 24" fill="none" stroke="currentColor"
-						stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-						<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-						<path d="m3.3 7 8.7 5 8.7-5"/>
-						<path d="M12 22V12"/>
-					</svg>
+	{#if showAddModal}
+		<aside
+			class="product-drawer sticky top-4 flex w-full max-w-[430px] shrink-0 flex-col"
+			aria-label="Add product"
+		>
+			<!-- DRAWER HEADER -->
+			<div class="product-drawer-header">
+				<div class="flex items-center gap-3">
+					<div class="flex h-10 w-10 items-center justify-center rounded-xl bg-[#E6F1F8] text-[#0278BD]">
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6"
+							viewBox="0 0 24 24" fill="none" stroke="currentColor"
+							stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+							<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+							<path d="m3.3 7 8.7 5 8.7-5"/>
+							<path d="M12 22V12"/>
+						</svg>
+					</div>
+
+					<div>
+						<h2 class="text-base font-semibold text-gray-900">
+							Add Product
+						</h2>
+						<p class="text-xs text-gray-400">
+							Create a new product in your store
+						</p>
+					</div>
 				</div>
 
-				<div>
-					<h2 class="text-base font-semibold text-gray-900">
-						Add Product
-					</h2>
-					<p class="text-xs text-gray-400">
-						Create a new product in your store
-					</p>
-				</div>
+				<button
+					type="button"
+					onclick={closeAddDrawer}
+					disabled={adding}
+					aria-label="Close"
+					class="rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+				>
+					<CloseOutline class="h-5 w-5" />
+				</button>
 			</div>
 
-			<button
-				type="button"
-				onclick={closeAddDrawer}
-				disabled={adding}
-				aria-label="Close"
-				class="rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
-			>
-				<CloseOutline class="h-5 w-5" />
-			</button>
-		</div>
+			<form onsubmit={addProduct} class="flex min-h-0 flex-1 flex-col">
 
-		<form onsubmit={addProduct} class="flex min-h-0 flex-1 flex-col">
+				<div class="product-drawer-body">
 
-			<div class="product-drawer-body">
+					<!-- PRODUCT IMAGE -->
+					<section>
+						<div class="mb-3 flex items-center gap-2">
+							<span class="flex h-6 w-6 items-center justify-center rounded-full bg-[#0278BD] text-xs font-semibold text-white">
+								1
+							</span>
+							<h3 class="text-sm font-semibold text-gray-800">
+								Product Image
+							</h3>
+						</div>
 
-				<!-- PRODUCT IMAGE -->
-				<section>
-					<div class="mb-3 flex items-center gap-2">
-						<span class="flex h-6 w-6 items-center justify-center rounded-full bg-[#0278BD] text-xs font-semibold text-white">
-							1
-						</span>
-						<h3 class="text-sm font-semibold text-gray-800">
-							Product Image
-						</h3>
-					</div>
+						{#if imagePreview}
+							<div class="relative overflow-hidden rounded-xl border border-gray-200 bg-gray-50 p-3">
+								<div class="flex items-center gap-3">
+									<img
+										src={imagePreview}
+										alt="Product preview"
+										class="h-20 w-20 rounded-lg border border-gray-200 object-cover"
+									/>
 
-					{#if imagePreview}
-						<div class="relative overflow-hidden rounded-xl border border-gray-200 bg-gray-50 p-3">
-							<div class="flex items-center gap-3">
-								<img
-									src={imagePreview}
-									alt="Product preview"
-									class="h-20 w-20 rounded-lg border border-gray-200 object-cover"
-								/>
+									<div class="min-w-0 flex-1">
+										<p class="truncate text-sm font-medium text-gray-800">
+											{imageFile?.name}
+										</p>
+										<p class="mt-1 text-xs text-gray-400">
+											{imageFile
+												? `${(imageFile.size / (1024 * 1024)).toFixed(2)} MB`
+												: 'Selected image'}
+										</p>
 
-								<div class="min-w-0 flex-1">
-									<p class="truncate text-sm font-medium text-gray-800">
-										{imageFile?.name}
-									</p>
-									<p class="mt-1 text-xs text-gray-400">
-										{imageFile
-											? `${(imageFile.size / (1024 * 1024)).toFixed(2)} MB`
-											: 'Selected image'}
-									</p>
+										<div class="mt-2 flex items-center gap-3">
+											<label
+												for="product-image"
+												class="cursor-pointer text-xs font-semibold text-[#0278BD] hover:underline"
+											>
+												Change image
+											</label>
 
-									<div class="mt-2 flex items-center gap-3">
-										<label
-											for="product-image"
-											class="cursor-pointer text-xs font-semibold text-[#0278BD] hover:underline"
-										>
-											Change image
-										</label>
-
-										<button
-											type="button"
-											onclick={removeImage}
-											class="text-xs font-medium text-red-500 hover:text-red-600"
-										>
-											Remove
-										</button>
+											<button
+												type="button"
+												onclick={removeImage}
+												class="text-xs font-medium text-red-500 hover:text-red-600"
+											>
+												Remove
+											</button>
+										</div>
 									</div>
 								</div>
-							</div>
 
-							<input
-								id="product-image"
-								type="file"
-								accept="image/png,image/jpeg,image/webp"
-								class="hidden"
-								onchange={handleImageChange}
-							/>
-						</div>
-					{:else}
-						<label
-							for="product-image"
-							class="product-upload-area group"
-						>
-							<div class="product-upload-icon">
-								<svg xmlns="http://www.w3.org/2000/svg"
-									class="h-10 w-10" viewBox="0 0 24 24"
-									fill="none" stroke="currentColor"
-									stroke-width="1.5" stroke-linecap="round"
-									stroke-linejoin="round">
-									<rect x="3" y="3" width="18" height="18" rx="3"/>
-									<circle cx="8.5" cy="8.5" r="1.5"/>
-									<path d="m21 15-5-5L5 21"/>
-								</svg>
-
-								<span class="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-[#0278BD] text-white">
-									<PlusOutline class="h-4 w-4"/>
-								</span>
-							</div>
-
-							<span class="mt-3 text-sm font-semibold text-gray-700">
-								Click to upload an image
-							</span>
-							<span class="mt-1 text-xs text-gray-400">
-								PNG, JPG or WEBP · Maximum 5 MB
-							</span>
-
-							<input
-								id="product-image"
-								type="file"
-								accept="image/png,image/jpeg,image/webp"
-								class="hidden"
-								onchange={handleImageChange}
-							/>
-						</label>
-					{/if}
-				</section>
-
-				<!-- PRODUCT INFORMATION -->
-				<section>
-					<div class="mb-4 flex items-center gap-2">
-						<span class="flex h-6 w-6 items-center justify-center rounded-full bg-[#0278BD] text-xs font-semibold text-white">
-							2
-						</span>
-						<h3 class="text-sm font-semibold text-gray-800">
-							Product Information
-						</h3>
-					</div>
-
-					<div class="space-y-4">
-
-						<!-- PRODUCT NAME -->
-						<div>
-							<label for="product-name" class="product-label">
-								Product Name <span class="text-red-500">*</span>
-							</label>
-
-							<div class="relative">
 								<input
-									id="product-name"
-									bind:value={name}
-									required
-									placeholder="Enter product name"
-									class="product-input"
+									id="product-image"
+									type="file"
+									accept="image/png,image/jpeg,image/webp"
+									class="hidden"
+									onchange={handleImageChange}
 								/>
 							</div>
+						{:else}
+							<label
+								for="product-image"
+								class="product-upload-area group"
+							>
+								<div class="product-upload-icon">
+									<svg xmlns="http://www.w3.org/2000/svg"
+										class="h-10 w-10" viewBox="0 0 24 24"
+										fill="none" stroke="currentColor"
+										stroke-width="1.5" stroke-linecap="round"
+										stroke-linejoin="round">
+										<rect x="3" y="3" width="18" height="18" rx="3"/>
+										<circle cx="8.5" cy="8.5" r="1.5"/>
+										<path d="m21 15-5-5L5 21"/>
+									</svg>
+
+									<span class="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-[#0278BD] text-white">
+										<PlusOutline class="h-4 w-4"/>
+									</span>
+								</div>
+
+								<span class="mt-3 text-sm font-semibold text-gray-700">
+									Click to upload an image
+								</span>
+								<span class="mt-1 text-xs text-gray-400">
+									PNG, JPG or WEBP · Maximum 5 MB
+								</span>
+
+								<input
+									id="product-image"
+									type="file"
+									accept="image/png,image/jpeg,image/webp"
+									class="hidden"
+									onchange={handleImageChange}
+								/>
+							</label>
+						{/if}
+					</section>
+
+					<!-- PRODUCT INFORMATION -->
+					<section>
+						<div class="mb-4 flex items-center gap-2">
+							<span class="flex h-6 w-6 items-center justify-center rounded-full bg-[#0278BD] text-xs font-semibold text-white">
+								2
+							</span>
+							<h3 class="text-sm font-semibold text-gray-800">
+								Product Information
+							</h3>
 						</div>
 
-						<!-- PRICE + CATEGORY -->
-						<div class="grid grid-cols-2 gap-3">
+						<div class="space-y-4">
 
+							<!-- PRODUCT NAME -->
 							<div>
-								<label for="product-price" class="product-label">
-									Price <span class="text-red-500">*</span>
+								<label for="product-name" class="product-label">
+									Product Name <span class="text-red-500">*</span>
 								</label>
 
 								<div class="relative">
-									<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
-										$
-									</span>
-
 									<input
-										id="product-price"
-										type="number"
-										min="0"
-										step="0.01"
-										bind:value={price}
+										id="product-name"
+										bind:value={name}
 										required
-										placeholder="0.00"
-										class="product-input pl-8"
+										placeholder="Enter product name"
+										class="product-input"
 									/>
 								</div>
 							</div>
 
+							<!-- PRICE + CATEGORY -->
+							<div class="grid grid-cols-2 gap-3">
+
+								<div>
+									<label for="product-price" class="product-label">
+										Price <span class="text-red-500">*</span>
+									</label>
+
+									<div class="relative">
+										<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+											$
+										</span>
+
+										<input
+											id="product-price"
+											type="number"
+											min="0"
+											step="0.01"
+											bind:value={price}
+											required
+											placeholder="0.00"
+											class="product-input pl-8"
+										/>
+									</div>
+								</div>
+									<div>
+										<label for="product-quantity" class="product-label">Quantity</label>
+										<input
+											id="product-quantity"
+											type="number"
+											min="0"
+											step="1"
+											bind:value={quantity}
+											placeholder="0"
+											class="product-input"
+										/>
+									</div>
+								</div>
+					
+
 							<div>
 								<label for="product-category" class="product-label">
-									Category
+										Category
+								</label>
+								<select
+										id="product-category"
+										bind:value={categoryId}
+										onchange={() => (subcategoryId = '')}
+										class="product-input"
+									>
+										<option value="">Select category</option>
+										{#each categories as c (c.id)}
+											<option value={c.id}>{c.name}</option>
+										{/each}
+								</select>
+							</div>
+
+							<!-- SUBCATEGORY -->
+							<div>
+								<label for="product-subcategory" class="product-label">
+									Subcategory
 								</label>
 
 								<select
-									id="product-category"
-									bind:value={categoryId}
-									onchange={() => (subcategoryId = '')}
+									id="product-subcategory"
+									bind:value={subcategoryId}
+									disabled={!categoryId || formSubs.length === 0}
 									class="product-input"
 								>
-									<option value="">Select category</option>
-									{#each categories as c (c.id)}
-										<option value={c.id}>{c.name}</option>
+									<option value="">Select subcategory</option>
+									{#each formSubs as s (s.id)}
+										<option value={s.id}>{s.name}</option>
 									{/each}
 								</select>
 							</div>
 
-						</div>
+							<!-- DESCRIPTION -->
+							<div>
+								<label for="product-description" class="product-label">
+									Description
+								</label>
 
-						<!-- SUBCATEGORY -->
-						<div>
-							<label for="product-subcategory" class="product-label">
-								Subcategory
-							</label>
-
-							<select
-								id="product-subcategory"
-								bind:value={subcategoryId}
-								disabled={!categoryId || formSubs.length === 0}
-								class="product-input"
-							>
-								<option value="">Select subcategory</option>
-								{#each formSubs as s (s.id)}
-									<option value={s.id}>{s.name}</option>
-								{/each}
-							</select>
-						</div>
-
-						<!-- DESCRIPTION -->
-						<div>
-							<label for="product-description" class="product-label">
-								Description
-							</label>
-
-							<textarea
-								id="product-description"
-								bind:value={description}
-								rows="3"
-								placeholder="Enter product description..."
-								class="product-input resize-none"
-							></textarea>
-						</div>
-
-						<!-- ERROR -->
-						{#if formError}
-							<div class="flex items-start gap-2 rounded-lg border border-red-100 bg-red-50 px-3 py-2.5 text-sm text-red-600">
-								<ExclamationCircleOutline class="mt-0.5 h-4 w-4 shrink-0"/>
-								<p>{formError}</p>
+								<textarea
+									id="product-description"
+									bind:value={description}
+									rows="3"
+									placeholder="Enter product description..."
+									class="product-input resize-none"
+								></textarea>
 							</div>
+
+							<!-- ERROR -->
+							{#if formError}
+								<div class="flex items-start gap-2 rounded-lg border border-red-100 bg-red-50 px-3 py-2.5 text-sm text-red-600">
+									<ExclamationCircleOutline class="mt-0.5 h-4 w-4 shrink-0"/>
+									<p>{formError}</p>
+								</div>
+							{/if}
+
+						</div>
+					</section>
+
+				</div>
+
+				<!-- FIXED FOOTER -->
+				<div class="product-drawer-footer">
+					<Button
+						type="button"
+						color="light"
+						onclick={closeAddDrawer}
+						disabled={adding}
+						class="!rounded-lg !px-5 !py-2.5"
+					>
+						Cancel
+					</Button>
+
+					<Button
+						type="submit"
+						class="btn-secondary !rounded-lg !px-5 !py-2.5"
+						disabled={adding}
+					>
+						{#if adding}
+							<span class="animate-spin">◌</span>
+							Adding...
+						{:else}
+							<PlusOutline class="h-4 w-4"/>
+							Add Product
 						{/if}
+					</Button>
+				</div>
 
-					</div>
-				</section>
-
-			</div>
-
-			<!-- FIXED FOOTER -->
-			<div class="product-drawer-footer">
-				<Button
-					type="button"
-					color="light"
-					onclick={closeAddDrawer}
-					disabled={adding}
-					class="!rounded-lg !px-5 !py-2.5"
-				>
-					Cancel
-				</Button>
-
-				<Button
-					type="submit"
-					class="btn-secondary !rounded-lg !px-5 !py-2.5"
-					disabled={adding}
-				>
-					{#if adding}
-						<span class="animate-spin">◌</span>
-						Adding...
-					{:else}
-						<PlusOutline class="h-4 w-4"/>
-						Add Product
-					{/if}
-				</Button>
-			</div>
-
-		</form>
-	</aside>
-{/if}
-
+			</form>
+		</aside>
+	{/if}
 </div>
