@@ -17,8 +17,6 @@
     } from 'flowbite-svelte-icons';
  	import { Button, Toggle, Badge,Checkbox, Input, Select, Textarea  } from 'flowbite-svelte';
 
-	
-
 	//#region Boolean Variables
 		let loading = $state(true);
 		let saving = $state(false);
@@ -686,7 +684,7 @@
 	</div>
 
 	{#if showAddModal}
-		<aside class="product-drawer sticky top-4 flex w-full max-w-[430px] shrink-0 flex-col" aria-label="Add product">
+		<aside class="product-drawer" aria-label="Add product">
 			<!-- DRAWER HEADER -->
 			<div class="product-drawer-header">
 				<div class="flex items-center gap-3">
@@ -893,16 +891,18 @@
 
 <style>
 	.product-drawer {
-    position: sticky;
-    top: 1rem;
-    max-height: calc(100vh - 2rem);
-    width: 430px;
-    overflow: hidden;
-    border: 1px solid #e5e7eb;
-    border-radius: 1rem;
-    background: #ffffff;
-    box-shadow: 0 8px 30px rgba(15, 23, 42, 0.06);
-}
+		position: sticky;
+		display: flex;
+		max-height: calc(100vh - 2rem);
+		width: 430px;
+		flex-shrink: 0;
+		flex-direction: column;
+		overflow: hidden;
+		border: 1px solid #e5e7eb;
+		border-radius: 1rem;
+		background: #ffffff;
+		box-shadow: 0 8px 30px rgba(15, 23, 42, 0.06);
+	}
 
 /* HEADER */
 
@@ -911,6 +911,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 1.1rem 1.25rem;
+	
     border-bottom: 1px solid #f1f5f9;
     background: #ffffff;
 }
@@ -923,6 +924,7 @@
     overflow-y: auto;
     padding: 1.25rem;
     display: flex;
+	overflow: hidden;
     flex-direction: column;
     gap: 1.5rem;
 }
