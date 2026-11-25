@@ -76,8 +76,6 @@
 		imagePreview = '';
 	}
 
-
-	
 	const CATEGORIES_API = '/api/categories';
 	const SUBCATEGORIES_API = '/api/subcategories';
 	const API = '/api/products';
@@ -501,11 +499,11 @@
 
 			<!-- TABLE -->
 			<div class="overflow-x-auto border-t border-gray-100">
-				<table class="w-full min-w-[760px] text-left text-sm">
+				<table>
 					<!-- TABLE HEADER -->
-					<thead class="bg-gray-50/70 text-xs font-medium text-gray-500">
-						<tr class="border-b border-gray-100">
-							<th class="w-12 px-4 py-3">
+					<thead>
+						<tr>
+							<th>
 								<input
 									type="checkbox"
 									checked={allSelected}
@@ -531,7 +529,7 @@
 						</tr>
 					</thead>
 					<!-- TABLE BODY -->
-					<tbody class="divide-y divide-gray-100">
+					<tbody>
 						{#if loading}
 							{#each [1, 2, 3, 4, 5] as n (n)}
 								<tr>
