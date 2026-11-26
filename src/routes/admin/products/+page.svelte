@@ -1196,115 +1196,115 @@
 		box-shadow: 0 8px 30px rgba(15, 23, 42, 0.06);
 	}
 
-/* HEADER */
+	/* HEADER */
 
-.product-drawer-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 1.1rem 1.25rem;
-    border-bottom: 1px solid #f1f5f9;
-    background: #ffffff;
-}
+	.product-drawer-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 1.1rem 1.25rem;
+		border-bottom: 1px solid #f1f5f9;
+		background: #ffffff;
+	}
 
-.product-drawer-body {
-	flex: 1;
-	min-height: 0;
-	overflow-y: auto;
-	padding: 1.25rem;
-	display: flex;
-	flex-direction: column;
-	gap: 1.5rem;
-}
+	.product-drawer-body {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+		padding: 1.25rem;
+		display: flex;
+		flex-direction: column;
+		gap: 1.5rem;
+	}
 
-.product-drawer-body::-webkit-scrollbar {
-    width: 5px;
-}
+	.product-drawer-body::-webkit-scrollbar {
+		width: 5px;
+	}
 
-.product-drawer-body::-webkit-scrollbar-track {
-    background: transparent;
-}
+	.product-drawer-body::-webkit-scrollbar-track {
+		background: transparent;
+	}
 
-.product-drawer-body::-webkit-scrollbar-thumb {
-    border-radius: 10px;
-    background: #d1d5db;
-}
+	.product-drawer-body::-webkit-scrollbar-thumb {
+		border-radius: 10px;
+		background: #d1d5db;
+	}
 
-.product-upload-area {
-    display: flex;
-    min-height: 168px;
-    width: 100%;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    border: 1.5px dashed #cbd5e1;
-    border-radius: 0.85rem;
-    background: #f8fafc;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
+	.product-upload-area {
+		display: flex;
+		min-height: 168px;
+		width: 100%;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		border: 1.5px dashed #cbd5e1;
+		border-radius: 0.85rem;
+		background: #f8fafc;
+		cursor: pointer;
+		transition: all 0.2s ease;
+	}
 
-.product-upload-area:hover {
-    border-color: var(--color-secondary);
-    background: #f0f8fd;
-}
+	.product-upload-area:hover {
+		border-color: var(--color-secondary);
+		background: #f0f8fd;
+	}
 
-.product-upload-icon {
-    position: relative;
-    display: flex;
-    height: 64px;
-    width: 64px;
-    align-items: center;
-    justify-content: center;
-    border-radius: 0.85rem;
-    background: #e6f1f8;
-    color: #5b9fd1;
-    transition: transform 0.2s ease;
-}
+	.product-upload-icon {
+		position: relative;
+		display: flex;
+		height: 64px;
+		width: 64px;
+		align-items: center;
+		justify-content: center;
+		border-radius: 0.85rem;
+		background: #e6f1f8;
+		color: #5b9fd1;
+		transition: transform 0.2s ease;
+	}
 
-.product-upload-area:hover .product-upload-icon {
-    transform: translateY(-3px);
-    color: #0278bd;
-}
+	.product-upload-area:hover .product-upload-icon {
+		transform: translateY(-3px);
+		color: #0278bd;
+	}
 
-/* FOOTER */
+	/* FOOTER */
 
-.product-drawer-footer {
-    display: flex;
-    flex-shrink: 0;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 0.75rem;
-    border-top: 1px solid #f1f5f9;
-    background: #ffffff;
-    padding: 1rem 1.25rem;
-}
+	.product-drawer-footer {
+		display: flex;
+		flex-shrink: 0;
+		align-items: center;
+		justify-content: flex-end;
+		gap: 0.75rem;
+		border-top: 1px solid #f1f5f9;
+		background: #ffffff;
+		padding: 1rem 1.25rem;
+	}
 
-/* RESPONSIVE */
+	/* RESPONSIVE */
 
-@media (max-width: 1279px) {
-    .product-drawer {
-        width: 390px;
-    }
-}
+	@media (max-width: 1279px) {
+		.product-drawer {
+			width: 390px;
+		}
+	}
 
-@media (max-width: 1023px) {
-    .product-drawer {
-        position: relative;
-        top: auto;
-        width: 100%;
-        max-width: 100%;
-        max-height: none;
-    }
-}
+	@media (max-width: 1023px) {
+		.product-drawer {
+			position: relative;
+			top: auto;
+			width: 100%;
+			max-width: 100%;
+			max-height: none;
+		}
+	}
 
-@media (max-width: 480px) {
-    .product-drawer-body {
-        padding: 1rem;
-    }
+	@media (max-width: 480px) {
+		.product-drawer-body {
+			padding: 1rem;
+		}
 
-    .product-drawer-footer {
-        padding: 1rem;
-    }
-}
+		.product-drawer-footer {
+			padding: 1rem;
+		}
+	}
 </style>
