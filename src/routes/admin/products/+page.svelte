@@ -776,62 +776,59 @@
 			</div>
 
 			<!-- TABLE FOOTER -->
-			<!-- TABLE FOOTER -->
-<div class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-4 py-3">
-	<!-- LEFT: rows per page -->
-	<div class="flex items-center gap-3 text-xs text-gray-500">
-		<span>Rows per page</span>
-		<div class="w-20">
-			<Select size="sm" items={pageSizeItems} bind:value={pageSizeValue} />
-		</div>
-		<span>
-			{#if selected.length > 0}
-				{selected.length} selected
-			{:else}
-				{rangeStart}–{rangeEnd} of {sorted.length}
-			{/if}
-		</span>
-	</div>
+			<div class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 py-3">
+				<div class="flex items-center gap-3 text-xs text-gray-500">
+					<div class="w-20">
+						<Select size="sm" items={pageSizeItems} bind:value={pageSizeValue} />
+					</div>
+					<span>
+						{#if selected.length > 0}
+							{selected.length} selected
+						{:else}
+							{rangeStart}–{rangeEnd} of {sorted.length}
+						{/if}
+					</span>
+				</div>
 
-	<!-- RIGHT: pagination -->
-	<nav class="flex items-center gap-1" aria-label="Pagination">
-		<button
-			type="button"
-			onclick={() => (currentPage = Math.max(1, currentPage - 1))}
-			disabled={currentPage === 1}
-			class="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-		>
-			Previous
-		</button>
+				<!-- RIGHT: pagination -->
+				<nav class="flex items-center gap-1" aria-label="Pagination">
+					<button
+						type="button"
+						onclick={() => (currentPage = Math.max(1, currentPage - 1))}
+						disabled={currentPage === 1}
+						class="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+					>
+						Previous
+					</button>
 
-		{#each pageNumbers as n, i (i)}
-			{#if n === '…'}
-				<span class="px-2 text-xs text-gray-400">…</span>
-			{:else}
-				<button
-					type="button"
-					onclick={() => (currentPage = n)}
-					aria-current={n === currentPage ? 'page' : undefined}
-					class="min-w-8 rounded-lg px-2.5 py-1.5 text-xs font-medium transition
-						{n === currentPage
-							? 'bg-[#0278BD] text-white'
-							: 'border border-gray-200 text-gray-600 hover:bg-gray-50'}"
-				>
-					{n}
-				</button>
-			{/if}
-		{/each}
+					{#each pageNumbers as n, i (i)}
+						{#if n === '…'}
+							<span class="px-2 text-xs text-gray-400">…</span>
+						{:else}
+							<button
+								type="button"
+								onclick={() => (currentPage = n)}
+								aria-current={n === currentPage ? 'page' : undefined}
+								class="min-w-8 rounded-lg px-2.5 py-1.5 text-xs font-medium transition
+									{n === currentPage
+										? 'bg-[#0278BD] text-white'
+										: 'border border-gray-200 text-gray-600 hover:bg-gray-50'}"
+							>
+								{n}
+							</button>
+						{/if}
+					{/each}
 
-		<button
-			type="button"
-			onclick={() => (currentPage = Math.min(totalPages, currentPage + 1))}
-			disabled={currentPage === totalPages}
-			class="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-		>
-			Next
-		</button>
-	</nav>
-</div>
+					<button
+						type="button"
+						onclick={() => (currentPage = Math.min(totalPages, currentPage + 1))}
+						disabled={currentPage === totalPages}
+						class="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+					>
+						Next
+					</button>
+				</nav>
+			</div>
 		</section>
 	</div>
 
