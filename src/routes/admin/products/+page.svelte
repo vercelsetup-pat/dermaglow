@@ -17,6 +17,11 @@
     } from 'flowbite-svelte-icons';
  	import { Button, Toggle, Badge,Checkbox, Input, Select, Textarea  } from 'flowbite-svelte';
 
+	let pageSizeValue = $state('8');
+	let currentPage = $state(1);
+
+	
+
 	//#region Boolean Variables
 		let loading = $state(true);
 		let saving = $state(false);
@@ -240,7 +245,7 @@
 		}
 		
 		function toggleAll() {
-			selected = allSelected ? [] : sorted.map((p) => p.id);
+			selected = allSelected ? [] : paginated.map((p) => p.id);
 		}
 
 		function clearFilters() {
@@ -436,8 +441,10 @@
 			}
 		});
 	});
+	const pageSize = $derived(Number(pageSizeValue));
+	const paginated = $derived(sorted.slice((currentPage - 1) * pageSize, currentPage * pageSize));
+	const allSelected = $derived(paginated.length > 0 && paginated.every((p) => selected.includes(p.id)));
 
-	const allSelected = $derived(sorted.length > 0 && sorted.every((p) => selected.includes(p.id)));
     const hasActiveFilters = $derived(
         !!filterCategoryId ||
         !!filterSubId ||
@@ -448,6 +455,41 @@
 		editing?.imageUrl && !imageErrors.has(editing.id) ? editing.imageUrl : ''
 	);
 	const shownImage = $derived(editImagePreview || currentImage);
+
+	const pageSizeItems = [8, 16, 24, 50].map((n) => ({ value: String(n), name: String(n) }));
+	
+	const totalPages = $derived(Math.max(1, Math.ceil(sorted.length / pageSize)));
+	
+	const rangeStart = $derived(sorted.length === 0 ? 0 : (currentPage - 1) * pageSize + 1);
+	const rangeEnd = $derived(Math.min(currentPage * pageSize, sorted.length));
+	const pageNumbers = $derived.by(() => {
+		const total = totalPages;
+		const cur = currentPage;
+		if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
+
+		const pages: (number | '…')[] = [1];
+		const start = Math.max(2, cur - 1);
+		const end = Math.min(total - 1, cur + 1);
+		if (start > 2) pages.push('…');
+		for (let i = start; i <= end; i++) pages.push(i);
+		if (end < total - 1) pages.push('…');
+		pages.push(total);
+		return pages;
+	});
+
+	// Go back to page 1 when search, filters, or page size change
+	$effect(() => {
+		search;
+		filterCategoryId;
+		filterSubId;
+		pageSizeValue;
+		currentPage = 1;
+	});
+
+	// If the last row of the last page is deleted, step back a page
+	$effect(() => {
+		if (currentPage > totalPages) currentPage = totalPages;
+	});
 </script>
 
 <svelte:window onkeydown={(e) => e.key === 'Escape' && closeEdit()} />
@@ -601,7 +643,7 @@
 								</td>
 							</tr>
 						{:else}
-							{#each sorted as p (p.id)}
+							{#each paginated as p (p.id)}
 								<tr class="border-b border-gray-100 transition-colors hover:bg-gray-50/70 {selected.includes(p.id) ? 'bg-sky-50/50' : ''}">
 									<!-- CHECKBOX -->
 									<td class=" w-2 px-4 py-3">
@@ -734,22 +776,62 @@
 			</div>
 
 			<!-- TABLE FOOTER -->
-			<div class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-4 py-3">
-				<span class="text-xs text-gray-500">
-					{#if selected.length > 0}
-						{selected.length} selected
-					{:else}
-						Showing {sorted.length} of {products.length} products
-					{/if}
-				</span>
+			<!-- TABLE FOOTER -->
+<div class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-4 py-3">
+	<!-- LEFT: rows per page -->
+	<div class="flex items-center gap-3 text-xs text-gray-500">
+		<span>Rows per page</span>
+		<div class="w-20">
+			<Select size="sm" items={pageSizeItems} bind:value={pageSizeValue} />
+		</div>
+		<span>
+			{#if selected.length > 0}
+				{selected.length} selected
+			{:else}
+				{rangeStart}–{rangeEnd} of {sorted.length}
+			{/if}
+		</span>
+	</div>
 
-				<div class="flex items-center gap-2 text-xs text-gray-500">
-					<span>Rows per page</span>
-					<span class="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-gray-600">
-						{sorted.length}
-					</span>
-				</div>
-			</div>
+	<!-- RIGHT: pagination -->
+	<nav class="flex items-center gap-1" aria-label="Pagination">
+		<button
+			type="button"
+			onclick={() => (currentPage = Math.max(1, currentPage - 1))}
+			disabled={currentPage === 1}
+			class="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+		>
+			Previous
+		</button>
+
+		{#each pageNumbers as n, i (i)}
+			{#if n === '…'}
+				<span class="px-2 text-xs text-gray-400">…</span>
+			{:else}
+				<button
+					type="button"
+					onclick={() => (currentPage = n)}
+					aria-current={n === currentPage ? 'page' : undefined}
+					class="min-w-8 rounded-lg px-2.5 py-1.5 text-xs font-medium transition
+						{n === currentPage
+							? 'bg-[#0278BD] text-white'
+							: 'border border-gray-200 text-gray-600 hover:bg-gray-50'}"
+				>
+					{n}
+				</button>
+			{/if}
+		{/each}
+
+		<button
+			type="button"
+			onclick={() => (currentPage = Math.min(totalPages, currentPage + 1))}
+			disabled={currentPage === totalPages}
+			class="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+		>
+			Next
+		</button>
+	</nav>
+</div>
 		</section>
 	</div>
 
@@ -1121,20 +1203,18 @@
     align-items: center;
     justify-content: space-between;
     padding: 1.1rem 1.25rem;
-	
     border-bottom: 1px solid #f1f5f9;
     background: #ffffff;
 }
 
 .product-drawer-body {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    padding: 1.25rem;
-    display: flex;
-	overflow: hidden;
-    flex-direction: column;
-    gap: 1.5rem;
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	padding: 1.25rem;
+	display: flex;
+	flex-direction: column;
+	gap: 1.5rem;
 }
 
 .product-drawer-body::-webkit-scrollbar {
