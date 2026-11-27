@@ -2,7 +2,7 @@ import type { RequestHandler } from './$types';
 import { and, asc, eq } from 'drizzle-orm';
 import { db } from '#lib/db/index.ts';
 import { products } from '#lib/db/schema.ts';
-import { asObject, cleanText, isUuid, parsePrice, parseQuantity, parseImageUrl, pgCode } from '#lib/validate.ts';
+import { asObject, cleanText, isUuid, parsePrice, parseQuantity, parseImageUrl, pgCode, parseBoolean } from '#lib/validate.ts';
 import { mkdir, writeFile, unlink } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
@@ -14,6 +14,7 @@ export const GET: RequestHandler = async ({ url }) => {
 	try {
 		const categoryId = url.searchParams.get('categoryId');
 		const subcategoryId = url.searchParams.get('subcategoryId');
+		const isActiveParam = url.searchParams.get('isActive');
 
 		if (categoryId && !isUuid(categoryId)) {
 			return Response.json({ success: false, message: 'Invalid categoryId.' }, { status: 400 });
@@ -22,9 +23,15 @@ export const GET: RequestHandler = async ({ url }) => {
 			return Response.json({ success: false, message: 'Invalid subcategoryId.' }, { status: 400 });
 		}
 
+		const isActive = isActiveParam === null ? null : parseBoolean(isActiveParam);
+		if (isActiveParam !== null && isActive === null) {
+			return Response.json({ success: false, message: 'Invalid isActive.' }, { status: 400 });
+		}
+
 		const filters = [
 			categoryId ? eq(products.categoryId, categoryId) : undefined,
-			subcategoryId ? eq(products.subcategoryId, subcategoryId) : undefined
+			subcategoryId ? eq(products.subcategoryId, subcategoryId) : undefined,
+			isActive !== null ? eq(products.isActive, isActive) : undefined
 		].filter((f) => f !== undefined);
 
 		const result = await db
@@ -65,6 +72,7 @@ export const POST: RequestHandler = async ({ request }) => {
 				description: text('description'),
 				price: text('price'),
 				quantity: text('quantity'),
+				isActive: text('isActive'),
 				categoryId: text('categoryId') || null,
 				subcategoryId: text('subcategoryId') || null,
 				imageUrl: null
@@ -120,6 +128,18 @@ export const POST: RequestHandler = async ({ request }) => {
 			);
 		}
 
+		// isActive defaults to true when not provided
+		const isActive =
+			payload.isActive === undefined || payload.isActive === null || payload.isActive === ''
+				? true
+				: parseBoolean(payload.isActive);
+		if (isActive === null) {
+			return Response.json(
+				{ success: false, message: 'isActive must be true or false.' },
+				{ status: 400 }
+			);
+		}
+
 		const parsedUrl = parseImageUrl(payload.imageUrl ?? null);
 		if (parsedUrl === undefined) {
 			return Response.json({ success: false, message: 'Invalid image URL.' }, { status: 400 });
@@ -158,6 +178,7 @@ export const POST: RequestHandler = async ({ request }) => {
 				description: cleanText(payload.description),
 				price,
 				quantity,
+				isActive,
 				imageUrl
 			})
 			.returning();

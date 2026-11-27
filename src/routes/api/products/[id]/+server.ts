@@ -2,7 +2,7 @@ import type { RequestHandler } from './$types';
 import { eq } from 'drizzle-orm';
 import { db } from '#lib/db/index.ts';
 import { products } from '#lib/db/schema.ts';
-import { asObject, cleanText, isUuid, parsePrice, parseQuantity, parseImageUrl, pgCode } from '#lib/validate.ts';
+import { asObject, cleanText, isUuid, parsePrice, parseQuantity,parseBoolean, parseImageUrl, pgCode } from '#lib/validate.ts';
 
 export const GET: RequestHandler = async ({ params }) => {
 	try {
@@ -63,6 +63,17 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 				);
 			}
 			values.quantity = quantity;
+		}
+
+		if ('isActive' in payload) {
+			const isActive = parseBoolean(payload.isActive);
+			if (isActive === null) {
+				return Response.json(
+					{ success: false, message: 'isActive must be true or false.' },
+					{ status: 400 }
+				);
+			}
+			values.isActive = isActive;
 		}
 
 		if ('imageUrl' in payload) {

@@ -19,7 +19,32 @@
 
 	let pageSizeValue = $state('8');
 	let currentPage = $state(1);
+	let togglingId = $state<string | null>(null);
 
+	async function toggleActive(p: Product) {
+			if (togglingId === p.id) return;
+
+			const next = !p.isActive;
+			togglingId = p.id;
+
+			// optimistic update: the switch responds instantly
+			products = products.map((x) => (x.id === p.id ? { ...x, isActive: next } : x));
+
+			try {
+				const updated = await api<Product>(`${API}/${p.id}`, {
+					method: 'PATCH',
+					body: JSON.stringify({ isActive: next })
+				});
+				products = products.map((x) => (x.id === updated.id ? { ...x, ...updated } : x));
+				notify('success', next ? 'Product activated.' : 'Product deactivated.');
+			} catch (err) {
+				// roll back if the server refused
+				products = products.map((x) => (x.id === p.id ? { ...x, isActive: !next } : x));
+				notify('error', err instanceof Error ? err.message : 'Could not update status.');
+			} finally {
+				togglingId = null;
+			}
+	}
 
 	//#region Boolean Variables
 		let loading = $state(true);
@@ -596,7 +621,6 @@
 			<div class="overflow-x-auto border-t border-gray-100">
 				<Table  hoverable={true}>
 					<TableHead>
-						
 						<TableHeadCell>
 							<Checkbox type="checkbox" checked={allSelected} onchange={toggleAll} class="h-4 w-4" aria-label="Select all products"/>
 						</TableHeadCell>
@@ -724,7 +748,10 @@
 										</span>
 									</TableBodyCell>
 
-									<TableBodyCell class="px-4 py-3"><Toggle  color="green" size="small" checked/></TableBodyCell>
+									<!--Status-->
+									<TableBodyCell class="px-4 py-3">
+										<Toggle color="green" size="small" checked={p.isActive} disabled={togglingId === p.id} onchange={() => toggleActive(p)} aria-label="{p.isActive ? 'Deactivate' : 'Activate'} {p.name}"/>
+									</TableBodyCell>
 
 									<!-- ACTIONS -->
 									<TableBodyCell class="px-4 py-3 text-right">

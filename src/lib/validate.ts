@@ -41,3 +41,10 @@ export function parseImageUrl(value: unknown): string | null | undefined {
 	if (s.length > 2048) return undefined;
 	return /^(https?:\/\/|\/)/i.test(s) ? s : undefined;
 }
+
+export function parseBoolean(value: unknown): boolean | null {
+	if (typeof value === 'boolean') return value;
+	if (value === 'true') return true;
+	if (value === 'false') return false;
+	return null;
+}

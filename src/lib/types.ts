@@ -43,5 +43,6 @@ export interface Product {
 	price: string | number;
 	quantity: number;
 	imageUrl: string | null;
+	isActive:boolean;
 	createdAt?: string | null;
 }

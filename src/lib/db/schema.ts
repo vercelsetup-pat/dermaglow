@@ -34,8 +34,9 @@ export const products = pgTable('products', {
     name: varchar('name', { length: 255 }).notNull(),
     description: text('description'),
     price: numeric('price', { precision: 10, scale: 2 }).notNull(),
-    imageUrl: text('image_url'),                                 // new: image URL, nullable
-    quantity: integer('quantity').notNull().default(0),   // new: stock count
+    imageUrl: text('image_url'),  
+    isActive: boolean('is_active').notNull().default(true),                               
+    quantity: integer('quantity').notNull().default(0),  
     createdAt: timestamp('created_at').defaultNow().notNull()
   },
   (table) => [
@@ -45,7 +46,7 @@ export const products = pgTable('products', {
       name: 'fk_product_subcategory_category'
     }),
     check('check_product_price', sql`${table.price} >= 0`),
-    check('check_product_quantity', sql`${table.quantity} >= 0`), // new
+    check('check_product_quantity', sql`${table.quantity} >= 0`),
 
     check(
       'check_product_subcategory_needs_category',
