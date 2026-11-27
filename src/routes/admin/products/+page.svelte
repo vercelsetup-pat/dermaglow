@@ -15,12 +15,11 @@
         CloseOutline,
 		ArrowDownToBracketOutline
     } from 'flowbite-svelte-icons';
- 	import { Button, Toggle, Badge,Checkbox, Input, Select, Textarea  } from 'flowbite-svelte';
+ 	import { Button, Toggle, Badge,Checkbox, Input, Select, Textarea, Table, TableBody, TableBodyCell, TableBodyRow, TableHead, TableHeadCell  } from 'flowbite-svelte';
 
 	let pageSizeValue = $state('8');
 	let currentPage = $state(1);
 
-	
 
 	//#region Boolean Variables
 		let loading = $state(true);
@@ -573,7 +572,7 @@
 
 				<div class="flex flex-wrap items-center gap-2">
 					{#if hasActiveFilters}
-						<Button type="button" onclick={clearFilters} color="alternative" class="px-3 py-2 text-xs font-medium">
+						<Button type="button" onclick={clearFilters} color="alternative" class="px-3 py-2">
 							Clear filters
 						</Button>
 					{/if}
@@ -595,39 +594,38 @@
 
 			<!-- TABLE -->
 			<div class="overflow-x-auto border-t border-gray-100">
-				<table>
-					<thead>
-						<tr>
-							<th>
-								<Checkbox type="checkbox" checked={allSelected} onchange={toggleAll} class="h-4 w-4" aria-label="Select all products"/>
-							</th>
-							{#each columns as col (col.key)}
-								<th class="px-4 py-3">
-									{#if col.sortable}
-										<button type="button" onclick={() => sortBy(col.key)} class="inline-flex items-center gap-1.5 transition hover:text-gray-900 {sortKey === col.key ? 'text-gray-900' : ''}">
+				<Table  hoverable={true}>
+					<TableHead>
+						
+						<TableHeadCell>
+							<Checkbox type="checkbox" checked={allSelected} onchange={toggleAll} class="h-4 w-4" aria-label="Select all products"/>
+						</TableHeadCell>
+						{#each columns as col (col.key)}
+							<TableHeadCell class="px-4 py-3">
+								{#if col.sortable}
+									<button type="button" onclick={() => sortBy(col.key)} class="inline-flex items-center gap-1.5 transition hover:text-gray-900 {sortKey === col.key ? 'text-gray-900' : ''}">
 											{col.label}
 											<ChevronDownOutline class="h-3.5 w-3.5 transition {sortKey === col.key ? 'text-[#0278BD]' : ''} {sortKey === col.key && sortDir === 'asc' ? 'rotate-180' : ''}"/>
-										</button>
-									{:else}
-										{col.label}
-									{/if}
-								</th>
-							{/each}
-							<th class="px-4 py-3 text-right">Actions</th>
-						</tr>
-					</thead>
+									</button>
+								{:else}
+									{col.label}
+								{/if}
+							</TableHeadCell>
+						{/each}
+						<TableHeadCell class="px-4 py-3 text-right">Actions</TableHeadCell>
+					</TableHead>
 					<!-- TABLE BODY -->
-					<tbody>
+					<TableBody>
 						{#if loading}
 							{#each [1, 2, 3, 4, 5] as n (n)}
-								<tr>
+								<TableBodyRow>
 									<td colspan="9" class="px-4 py-3">
 										<div class="h-9 animate-pulse rounded-lg bg-gray-100"></div>
 									</td>
-								</tr>
+								</TableBodyRow>
 							{/each}
 						{:else if sorted.length === 0}
-							<tr>
+							<TableBodyRow>
 								<td colspan="9" class="px-5 py-16 text-center">
 									<div class="mx-auto flex max-w-sm flex-col items-center">
 										<div class="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100 text-gray-400">
@@ -641,17 +639,17 @@
 										</p>
 									</div>
 								</td>
-							</tr>
+							</TableBodyRow>
 						{:else}
 							{#each paginated as p (p.id)}
-								<tr class="border-b border-gray-100 transition-colors hover:bg-gray-50/70 {selected.includes(p.id) ? 'bg-sky-50/50' : ''}">
+								<TableBodyRow>
 									<!-- CHECKBOX -->
-									<td class=" w-2 px-4 py-3">
+									<TableBodyCell class=" w-2 px-4 py-3">
 										<Checkbox value={p.id} bind:group={selected} aria-label="Select {p.name}" class="h-4 w-4"/>
-									</td>
+									</TableBodyCell>
 
 									<!-- PRODUCT IMAGE/NAME -->
-									<td class="px-4 py-3">
+									<TableBodyCell class="px-4 py-3">
 										<div class="flex items-center gap-3">
 											{#if p.imageUrl && !imageErrors.has(p.id)}
 												<img
@@ -683,40 +681,40 @@
 												{p.name}
 											</p>
 										</div>
-									</td>
+									</TableBodyCell>
 
 									<!-- PRICE -->
-									<td class="px-4 py-3 text-xs font-medium text-gray-700">{money(p.price)}</td>
+									<TableBodyCell class="px-4 py-3 text-xs font-medium text-gray-700">{money(p.price)}</TableBodyCell>
 									
 									<!-- CATEGORY -->
-									<td class="px-4 py-3">
+									<TableBodyCell class="px-4 py-3">
 										{#if p.categoryId}
 											<Badge color="blue"> {catName(p.categoryId)}</Badge>
 										{:else}
 											<Badge color="gray">No category</Badge>
 										{/if}
-									</td>
+									</TableBodyCell>
 
 									<!-- SUB CATEGORY -->
-									<td class="px-4 py-3">
+									<TableBodyCell class="px-4 py-3">
 										{#if p.subcategoryId}
 											<Badge color="indigo"> {subName(p.subcategoryId)}</Badge>
 										{:else}
 											<Badge color="gray">None</Badge>
 										{/if}
-									</td>
+									</TableBodyCell>
 									
 									<!--Description-->
-									<td class="px-4 py-3 font-medium text-gray-700">
+									<TableBodyCell class="px-4 py-3 font-medium text-gray-700">
 										{#if p.description}
 											<Badge color="blue">...</Badge>
 										{:else}
 											<Badge color="gray">None</Badge>
 										{/if}
-									</td>
+									</TableBodyCell>
 								
 									<!-- QUANTITY -->
-									<td class="px-4 py-3">
+									<TableBodyCell class="px-4 py-3">
 										<span class="font-medium text-gray-700">
 											{#if p.quantity}
 											<Badge color="green">{p.quantity}</Badge>
@@ -724,12 +722,12 @@
 											<Badge color="red">out of stock</Badge>
 											{/if}
 										</span>
-									</td>
+									</TableBodyCell>
 
-									<td class="px-4 py-3"><Toggle  color="green" size="small" checked/></td>
+									<TableBodyCell class="px-4 py-3"><Toggle  color="green" size="small" checked/></TableBodyCell>
 
 									<!-- ACTIONS -->
-									<td class="px-4 py-3 text-right">
+									<TableBodyCell class="px-4 py-3 text-right">
 										{#if confirmingId === p.id}
 											<div class="inline-flex items-center gap-2">
 												<Button type="button" onclick={() => removeProduct(p.id)} disabled={deletingId === p.id}
@@ -767,12 +765,12 @@
 												</button>
 											</div>
 										{/if}
-									</td>
-								</tr>
+									</TableBodyCell>
+								</TableBodyRow>
 							{/each}
 						{/if}
-					</tbody>
-				</table>
+					</TableBody>
+				</Table>
 			</div>
 
 			<!-- TABLE FOOTER -->
