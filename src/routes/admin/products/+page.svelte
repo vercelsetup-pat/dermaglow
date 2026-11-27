@@ -619,7 +619,7 @@
 
 			<!-- TABLE -->
 			<div class="overflow-x-auto border-t border-gray-100">
-				<Table  hoverable={true}>
+				<Table hoverable={true}>
 					<TableHead>
 						<TableHeadCell>
 							<Checkbox type="checkbox" checked={allSelected} onchange={toggleAll} class="h-4 w-4" aria-label="Select all products"/>

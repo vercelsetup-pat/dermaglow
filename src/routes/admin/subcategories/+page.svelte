@@ -13,9 +13,8 @@
 		ChevronDownOutline,
 		CloseOutline
 	} from 'flowbite-svelte-icons';
-	import { Button, Toggle, Badge, Checkbox, Input, Select, Textarea  } from 'flowbite-svelte';
+	import { Button, Toggle, Badge,Checkbox, Input, Select, Textarea, Table, TableBody, TableBodyCell, TableBodyRow, TableHead, TableHeadCell  } from 'flowbite-svelte';
 
-	
 	//#region Types & constant
 		type SortKey = 'name' | 'category' | 'description' | 'createdAt';
 		type Column = { key: SortKey; label: string; sortable?: boolean };
@@ -373,33 +372,27 @@
 			</div>
 
 			<div class="overflow-x-auto border-t border-gray-100">
-				<table>
-					<thead>
-						<tr >
-							<th>
-								<Checkbox type="checkbox" checked={allSelected} onchange={toggleAll} class="h-4 w-4" aria-label="Select all sub categories"/>
-							</th>
-
-							{#each columns as col (col.key)}
-								<th class="px-4 py-3">
-									{#if col.sortable}
-										<button type="button" onclick={() => sortBy(col.key)} class="inline-flex items-center gap-1.5 transition hover:text-gray-900 {sortKey === col.key ? 'text-gray-900' : ''}">
-											{col.label}
-											<ChevronDownOutline
-												class="h-3.5 w-3.5 transition {sortKey === col.key ? 'text-[#0278BD]' : ''} {sortKey === col.key && sortDir === 'asc' ? 'rotate-180' : ''}"
-											/>
-										</button>
-									{:else}
+				<Table hoverable={true}>
+					<TableHead>
+						<TableHeadCell>
+							<Checkbox type="checkbox" checked={allSelected} onchange={toggleAll} class="h-4 w-4" aria-label="Select all sub categories"/>
+						</TableHeadCell>
+						{#each columns as col (col.key)}
+							<TableHeadCell class="px-4 py-3">
+								{#if col.sortable}
+									<button type="button" onclick={() => sortBy(col.key)} class="inline-flex items-center gap-1.5 transition hover:text-gray-900 {sortKey === col.key ? 'text-gray-900' : ''}">
 										{col.label}
-									{/if}
-								</th>
-							{/each}
-							<th class="px-4 py-3 text-right">Actions</th>
-						</tr>
-					</thead>
+										<ChevronDownOutline class="h-3.5 w-3.5 transition {sortKey === col.key ? 'text-[#0278BD]' : ''} {sortKey === col.key && sortDir === 'asc' ? 'rotate-180' : ''}"/>
+									</button>
+								{:else}
+									{col.label}
+								{/if}
+							</TableHeadCell>
+						{/each}
+						<TableHeadCell class="px-4 py-3 text-right">Actions</TableHeadCell>
+					</TableHead>
 
-					<!-- BODY -->
-					<tbody>
+					<TableBody>
 						{#if loading}
 							{#each [1, 2, 3, 4, 5] as n (n)}
 								<tr>
@@ -509,8 +502,8 @@
 								</tr>
 							{/each}
 						{/if}
-					</tbody>
-				</table>
+					</TableBody>
+				</Table>
 			</div>
 
 			<!-- FOOTER -->
