@@ -13,61 +13,120 @@
 		ChevronDownOutline,
 		CloseOutline
 	} from 'flowbite-svelte-icons';
-	import { Button, Toggle, Badge,Checkbox, Input, Select, Textarea, Table, TableBody, TableBodyCell, TableBodyRow, TableHead, TableHeadCell  } from 'flowbite-svelte';
+	import {
+		Button,
+		Toggle,
+		Badge,
+		Checkbox,
+		Input,
+		Select,
+		Textarea,
+		Table,
+		TableBody,
+		TableBodyCell,
+		TableBodyRow,
+		TableHead,
+		TableHeadCell
+	} from 'flowbite-svelte';
 
-	//#region Types & constant
-		type SortKey = 'name' | 'category' | 'description' | 'createdAt';
-		type Column = { key: SortKey; label: string; sortable?: boolean };
+	type SortKey = 'name' | 'category' | 'description' | 'createdAt' | 'status';
+	type Column = { key: SortKey; label: string };
+	type Toast = { type: 'success' | 'error'; text: string };
 
-		const CATEGORIES_API = '/api/categories';
-		const API = '/api/subcategories';
-		const columns: Column[] = [
-			{ key: 'name', label: 'Sub Category', sortable: true },
-			{ key: 'category', label: 'Category', sortable: true },
-			{ key: 'description', label: 'Description', sortable: true },
-			{ key: 'createdAt', label: 'Created', sortable: true }
-		];
-		const colSpan = $derived(columns.length + 2);
-
-		let categories = $state<Category[]>([]);
-		let subcategories = $state<Subcategory[]>([]);
-		let sortKey = $state<SortKey>('createdAt');
-		let sortDir = $state<'asc' | 'desc'>('desc');
-		let editing = $state<Subcategory | null>(null);
-		let toast = $state<{ type: 'success' | 'error'; text: string } | null>(null);
-		let toastTimer: ReturnType<typeof setTimeout> | undefined;
+	//#region Constants
+	const CATEGORIES_API = '/api/categories';
+	const API = '/api/subcategories';
+	const columns: Column[] = [
+		{ key: 'name', label: 'Sub Category' },
+		{ key: 'category', label: 'Category' },
+		{ key: 'description', label: 'Description' },
+		{ key: 'status', label: 'Status' },
+		{ key: 'createdAt', label: 'Created' }
+	];
+	// checkbox + columns + actions
+	const colSpan = columns.length + 2;
+	const emptyForm = { categoryId: '', name: '', description: '', isActive: true };
+	const pageSizeItems = [8, 16, 24, 50].map((n) => ({ value: String(n), name: String(n) }));
 	//#endregion
 
-	//#region Boolean Variables
-		let adding = $state(false);
-		let showAddPanel = $state(false);
-		let saving = $state(false);
-		let loading = $state(true);
+	//#region State
+	let categories = $state<Category[]>([]);
+	let subcategories = $state<Subcategory[]>([]);
+	let loading = $state(true);
+
+	// add / edit panel (one shared form)
+	let panel = $state<'add' | 'edit' | null>(null);
+	let editing = $state<Subcategory | null>(null);
+	let form = $state({ ...emptyForm });
+	let formError = $state('');
+	let busy = $state(false);
+
+	// table
+	let search = $state('');
+	let filterCategoryId = $state('');
+	let sortKey = $state<SortKey>('createdAt');
+	let sortDir = $state<'asc' | 'desc'>('desc');
+	let pageSizeValue = $state('8');
+	let currentPage = $state(1);
+	let selected = $state<string[]>([]);
+
+	// row actions
+	let togglingId = $state<string | null>(null);
+	let confirmingId = $state<string | null>(null);
+	let deletingId = $state<string | null>(null);
+
+	let toast = $state<Toast | null>(null);
+	let toastTimer: ReturnType<typeof setTimeout> | undefined;
 	//#endregion
 
-	//#region String Variables
-		let categoryId = $state('');
-		let name = $state('');
-		let description = $state('');
-		let formError = $state('');
-		let editName = $state('');
-		let editDescription = $state('');
-		let editError = $state('');
-		let filterCategoryId = $state('');
-		let search = $state('');
-		let selected = $state<string[]>([]);
-		let confirmingId = $state<string | null>(null);
-		let deletingId = $state<string | null>(null);
-	//#endregion
-	
 	//#region Derived
 	const categoryNames = $derived(new Map(categories.map((c) => [c.id, c.name])));
 	const categoryName = (id: string) => categoryNames.get(id) ?? 'Unknown category';
 
-	const totalSubs = $derived(subcategories.length);
-	const categoriesUsed = $derived(new Set(subcategories.map((s) => s.categoryId)).size);
-	const categoriesEmpty = $derived(Math.max(categories.length - categoriesUsed, 0));
-	const noDescription = $derived(subcategories.filter((s) => !s.description?.trim()).length);
+	const categoryItems = $derived(
+		categories.map((c) => ({
+			value: c.id,
+			name: `${c.name}${c.isActive === false ? ' (inactive)' : ''}`
+		}))
+	);
+	const categoryFilterItems = $derived([
+		{ value: '', name: 'All categories' },
+		...categories.map((c) => ({ value: c.id, name: c.name }))
+	]);
+
+	const stats = $derived.by(() => {
+		const used = new Set(subcategories.map((s) => s.categoryId)).size;
+		return [
+			{
+				label: 'Total Sub Categories',
+				value: subcategories.length,
+				hint: 'Across all categories',
+				icon: LayersOutline,
+				tone: 'bg-green-50 text-green-600'
+			},
+			{
+				label: 'Categories In Use',
+				value: used,
+				hint: 'Have at least one sub category',
+				icon: CheckCircleOutline,
+				tone: 'bg-green-50 text-green-600'
+			},
+			{
+				label: 'Empty Categories',
+				value: Math.max(categories.length - used, 0),
+				hint: 'No sub categories yet',
+				icon: ExclamationCircleOutline,
+				tone: 'bg-amber-50 text-amber-600'
+			},
+			{
+				label: 'No Description',
+				value: subcategories.filter((s) => !s.description?.trim()).length,
+				hint: 'Could use a description',
+				icon: CloseCircleOutline,
+				tone: 'bg-red-50 text-red-600'
+			}
+		];
+	});
 
 	const hasActiveFilters = $derived(!!filterCategoryId || !!search.trim());
 
@@ -94,194 +153,223 @@
 					return categoryName(a.categoryId).localeCompare(categoryName(b.categoryId)) * dir;
 				case 'description':
 					return (a.description ?? '').localeCompare(b.description ?? '') * dir;
+				case 'status':
+					return (Number(a.isActive) - Number(b.isActive)) * dir;
 				default:
-					return (
-						(new Date(a.createdAt ?? 0).getTime() - new Date(b.createdAt ?? 0).getTime()) * dir
-					);
+					return (new Date(a.createdAt ?? 0).getTime() - new Date(b.createdAt ?? 0).getTime()) * dir;
 			}
 		});
 	});
 
-	const allSelected = $derived(sorted.length > 0 && sorted.every((s) => selected.includes(s.id)));
+	const pageSize = $derived(Number(pageSizeValue));
+	const totalPages = $derived(Math.max(1, Math.ceil(sorted.length / pageSize)));
+	const page = $derived(Math.min(currentPage, totalPages));
+	const paginated = $derived(sorted.slice((page - 1) * pageSize, page * pageSize));
+	const rangeStart = $derived(sorted.length === 0 ? 0 : (page - 1) * pageSize + 1);
+	const rangeEnd = $derived(Math.min(page * pageSize, sorted.length));
+
+	const pageNumbers = $derived.by(() => {
+		if (totalPages <= 5) return Array.from({ length: totalPages }, (_, i) => i + 1);
+		const pages: (number | '…')[] = [1];
+		const start = Math.max(2, page - 1);
+		const end = Math.min(totalPages - 1, page + 1);
+		if (start > 2) pages.push('…');
+		for (let p = start; p <= end; p++) pages.push(p);
+		if (end < totalPages - 1) pages.push('…');
+		pages.push(totalPages);
+		return pages;
+	});
+
+	const allSelected = $derived(paginated.length > 0 && paginated.every((s) => selected.includes(s.id)));
 	//#endregion
 
 	//#region Helpers
-		function notify(type: 'success' | 'error', text: string) {
-			toast = { type, text };
-			clearTimeout(toastTimer);
-			toastTimer = setTimeout(() => (toast = null), 3000);
-		}
-
-		function formatDate(value?: string | Date | null) {
-			if (!value) return '—';
-			const d = new Date(value);
-			if (Number.isNaN(d.getTime())) return '—';
-			return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-		}
-
-		function sortBy(key: SortKey) {
-			if (sortKey === key) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
-			else {
-				sortKey = key;
-				sortDir = 'asc';
-			}
-		}
-	//#endregion
-
-	//#region Functions
-		function toggleAll() {
-			selected = allSelected ? [] : sorted.map((s) => s.id);
-		}
-
-		function clearFilters() {
-			filterCategoryId = '';
-			search = '';
-		}
-
-		async function api<T>(url: string, init?: RequestInit): Promise<T> {
-			const res = await fetch(url, {
-				headers: { 'Content-Type': 'application/json' },
-				...init
-			});
-			const body = await res.json().catch(() => null);
-			if (!res.ok || !body?.success) {
-				throw new Error(body?.message ?? 'Something went wrong. Please try again.');
-			}
-			return body.data as T;
-		}
-	//#endregion
-
-	//#region Panels
-	function openAdd() {
-		editing = null;
-		formError = '';
-		showAddPanel = true;
+	function notify(type: Toast['type'], text: string) {
+		toast = { type, text };
+		clearTimeout(toastTimer);
+		toastTimer = setTimeout(() => (toast = null), 3000);
 	}
 
-	function closeAdd() {
-		if (adding) return;
-		showAddPanel = false;
+	function formatDate(value?: string | null) {
+		const d = value ? new Date(value) : null;
+		if (!d || Number.isNaN(d.getTime())) return '—';
+		return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+	}
+
+	function sortBy(key: SortKey) {
+		if (sortKey === key) {
+			sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+		} else {
+			sortKey = key;
+			sortDir = 'asc';
+		}
+	}
+
+	function toggleAll() {
+		selected = allSelected ? [] : paginated.map((s) => s.id);
+	}
+
+	function clearFilters() {
+		filterCategoryId = '';
+		search = '';
+	}
+
+	async function api<T>(url: string, init?: RequestInit): Promise<T> {
+		const res = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...init });
+		const body = await res.json().catch(() => null);
+		if (!res.ok || !body?.success) {
+			throw new Error(body?.message ?? 'Something went wrong. Please try again.');
+		}
+		return body.data as T;
+	}
+	//#endregion
+
+	//#region Panel
+	function openAdd() {
+		editing = null;
+		form = { ...emptyForm };
 		formError = '';
+		panel = 'add';
 	}
 
 	function openEdit(s: Subcategory) {
-		showAddPanel = false;
 		editing = s;
-		editName = s.name;
-		editDescription = s.description ?? '';
-		editError = '';
+		form = {
+			categoryId: s.categoryId,
+			name: s.name,
+			description: s.description ?? '',
+			isActive: s.isActive
+		};
+		formError = '';
+		panel = 'edit';
 	}
 
-	function closeEdit() {
-		if (saving) return;
+	function closePanel() {
+		if (busy) return;
+		panel = null;
 		editing = null;
+		formError = '';
 	}
 	//#endregion
 
-	//#region Async Functions
-		async function addSubcategory(e: SubmitEvent) {
-			e.preventDefault();
-			formError = '';
-			if (!categoryId) {
-				formError = 'Choose a category.';
-				return;
-			}
-			if (!name.trim()) {
-				formError = 'Enter a subcategory name.';
-				return;
-			}
-			adding = true;
-			try {
-				const created = await api<Subcategory>(API, {
-					method: 'POST',
-					body: JSON.stringify({ categoryId, name, description })
-				});
-				subcategories = [created, ...subcategories];
-				// keep the category selected so several can be added in a row
-				name = '';
-				description = '';
-				notify('success', 'Subcategory added.');
-			} catch (err) {
-				formError = err instanceof Error ? err.message : 'Could not add subcategory.';
-			} finally {
-				adding = false;
-			}
-		}
+	//#region Actions
+	async function submit(e: SubmitEvent) {
+		e.preventDefault();
 
-		async function saveEdit(e: SubmitEvent) {
-			e.preventDefault();
-			if (!editing) return;
-			if (!editName.trim()) {
-				editError = 'Enter a subcategory name.';
-				return;
-			}
-			saving = true;
-			editError = '';
-			try {
+		formError =
+			panel === 'add' && !form.categoryId
+				? 'Choose a category.'
+				: !form.name.trim()
+					? 'Enter a subcategory name.'
+					: '';
+		if (formError) return;
+
+		busy = true;
+		try {
+			if (editing) {
 				const updated = await api<Subcategory>(`${API}/${editing.id}`, {
 					method: 'PATCH',
-					body: JSON.stringify({ name: editName, description: editDescription })
+					body: JSON.stringify({
+						name: form.name,
+						description: form.description,
+						isActive: form.isActive
+					})
 				});
 				subcategories = subcategories.map((s) => (s.id === updated.id ? { ...s, ...updated } : s));
+				panel = null;
 				editing = null;
 				notify('success', 'Changes saved.');
-			} catch (err) {
-				editError = err instanceof Error ? err.message : 'Could not save changes.';
-			} finally {
-				saving = false;
+			} else {
+				const created = await api<Subcategory>(API, { method: 'POST', body: JSON.stringify(form) });
+				subcategories = [created, ...subcategories];
+				// keep the category selected so several can be added in a row
+				form.name = '';
+				form.description = '';
+				notify('success', 'Subcategory added.');
 			}
+		} catch (err) {
+			formError = err instanceof Error ? err.message : 'Could not save sub category.';
+		} finally {
+			busy = false;
 		}
+	}
 
-		async function removeSubcategory(id: string) {
-			deletingId = id;
-			try {
-				await api(`${API}/${id}`, { method: 'DELETE' });
-				subcategories = subcategories.filter((s) => s.id !== id);
-				selected = selected.filter((x) => x !== id);
-				if (editing?.id === id) editing = null;
-				notify('success', 'Subcategory deleted.');
-			} catch (err) {
-				notify('error', err instanceof Error ? err.message : 'Could not delete subcategory.');
-			} finally {
-				deletingId = null;
-				confirmingId = null;
-			}
+	async function toggleActive(s: Subcategory) {
+		if (togglingId === s.id) return;
+
+		const next = !s.isActive;
+		const setStatus = (isActive: boolean) =>
+			(subcategories = subcategories.map((item) => (item.id === s.id ? { ...item, isActive } : item)));
+
+		togglingId = s.id;
+		setStatus(next); // optimistic
+
+		try {
+			await api<Subcategory>(`${API}/${s.id}`, {
+				method: 'PATCH',
+				body: JSON.stringify({ isActive: next })
+			});
+			notify('success', next ? 'Sub category activated.' : 'Sub category deactivated.');
+		} catch (err) {
+			setStatus(!next); // roll back
+			notify('error', err instanceof Error ? err.message : 'Could not update status.');
+		} finally {
+			togglingId = null;
 		}
+	}
+
+	async function remove(id: string) {
+		if (deletingId) return;
+
+		deletingId = id;
+		try {
+			await api(`${API}/${id}`, { method: 'DELETE' });
+			subcategories = subcategories.filter((s) => s.id !== id);
+			selected = selected.filter((x) => x !== id);
+			if (editing?.id === id) closePanel();
+			notify('success', 'Subcategory deleted.');
+		} catch (err) {
+			notify('error', err instanceof Error ? err.message : 'Could not delete subcategory.');
+		} finally {
+			deletingId = null;
+			confirmingId = null;
+		}
+	}
 	//#endregion
 
-	onMount(async () => {
-		try {
-			[categories, subcategories] = await Promise.all([
-				api<Category[]>(CATEGORIES_API),
-				api<Subcategory[]>(API)
-			]);
-		} catch (e) {
-			notify('error', e instanceof Error ? e.message : 'Could not load data.');
-		} finally {
-			loading = false;
-		}
+	// back to page 1 whenever the list changes shape
+	$effect(() => {
+		[search, filterCategoryId, pageSizeValue];
+		currentPage = 1;
 	});
 
-	// const categoryFilterItems = $derived([
-	// 	{ value: '', name: 'All categories' },
-	// 	{ value: "", name: 'No category' },
-	// 	...categories.map((c) => ({ value: c.id, name: c.name }))
-	// ]);
+	onMount(() => {
+		let active = true;
 
-	const categoryItems = $derived(
-		categories.map((c) => ({
-			value: c.id,
-			name: `${c.name}${c.isActive === false ? ' (inactive)' : ''}`
-		}))
-	);
+		(async () => {
+			try {
+				const [loadedCategories, loadedSubcategories] = await Promise.all([
+					api<Category[]>(CATEGORIES_API),
+					api<Subcategory[]>(API)
+				]);
+				if (!active) return;
+				categories = loadedCategories;
+				subcategories = loadedSubcategories;
+			} catch (err) {
+				if (active) notify('error', err instanceof Error ? err.message : 'Could not load data.');
+			} finally {
+				if (active) loading = false;
+			}
+		})();
 
-	const categoryFilterItems = $derived([
-		{ value: '', name: 'All categories' },
-		...categories.map((c) => ({ value: c.id, name: c.name }))
-	]);
+		return () => {
+			active = false;
+			clearTimeout(toastTimer);
+		};
+	});
 </script>
 
-<svelte:window onkeydown={(e) => e.key === 'Escape' && closeEdit()} />
+<svelte:window onkeydown={(e) => e.key === 'Escape' && closePanel()} />
 
 <div class="flex items-start gap-4">
 	<!-- LEFT: PAGE CONTENT -->
@@ -304,53 +392,22 @@
 
 		<!-- STAT CARDS -->
 		<div class="card">
-			<!-- Total -->
-			<div class="flex items-center justify-between border-b border-gray-100 p-5 transition hover:bg-gray-50/50 sm:border-r xl:border-b-0">
-				<div>
-					<p class="text-xs font-medium text-gray-500">Total Sub Categories</p>
-					<p class="mt-2 text-2xl font-semibold tracking-tight text-gray-900">{totalSubs.toLocaleString()}</p>
-					<p class="mt-1.5 text-xs text-gray-400">Across all categories</p>
+			{#each stats as s, i (s.label)}
+				{@const Icon = s.icon}
+				<div
+					class="flex items-center justify-between border-b border-gray-100 p-5 transition last:border-b-0 hover:bg-gray-50/50 xl:border-b-0
+						{i % 2 === 0 ? 'sm:border-r' : ''} {i < 3 ? 'xl:border-r' : ''}"
+				>
+					<div>
+						<p class="text-xs font-medium text-gray-500">{s.label}</p>
+						<p class="mt-2 text-2xl font-semibold tracking-tight text-gray-900">{s.value.toLocaleString()}</p>
+						<p class="mt-1.5 text-xs text-gray-400">{s.hint}</p>
+					</div>
+					<div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl {s.tone}">
+						<Icon class="h-6 w-6" />
+					</div>
 				</div>
-				<div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-green-50 text-green-600">
-					<LayersOutline class="h-6 w-6" />
-				</div>
-			</div>
-
-			<!-- Categories in use -->
-			<div class="flex items-center justify-between border-b border-gray-100 p-5 transition hover:bg-gray-50/50 xl:border-b-0 xl:border-r">
-				<div>
-					<p class="text-xs font-medium text-gray-500">Categories In Use</p>
-					<p class="mt-2 text-2xl font-semibold tracking-tight text-gray-900">{categoriesUsed.toLocaleString()}</p>
-					<p class="mt-1.5 text-xs text-gray-400">Have at least one sub category</p>
-				</div>
-				<div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-green-50 text-green-600">
-					<CheckCircleOutline class="h-6 w-6" />
-				</div>
-			</div>
-
-			<!-- Categories empty -->
-			<div class="flex items-center justify-between border-b border-gray-100 p-5 transition hover:bg-gray-50/50 sm:border-r xl:border-b-0">
-				<div>
-					<p class="text-xs font-medium text-gray-500">Empty Categories</p>
-					<p class="mt-2 text-2xl font-semibold tracking-tight text-gray-900">{categoriesEmpty.toLocaleString()}</p>
-					<p class="mt-1.5 text-xs text-gray-400">No sub categories yet</p>
-				</div>
-				<div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
-					<ExclamationCircleOutline class="h-6 w-6" />
-				</div>
-			</div>
-
-			<!-- No description -->
-			<div class="flex items-center justify-between p-5 transition hover:bg-gray-50/50">
-				<div>
-					<p class="text-xs font-medium text-gray-500">No Description</p>
-					<p class="mt-2 text-2xl font-semibold tracking-tight text-gray-900">{noDescription.toLocaleString()}</p>
-					<p class="mt-1.5 text-xs text-gray-400">Could use a description</p>
-				</div>
-				<div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600">
-					<CloseCircleOutline class="h-6 w-6" />
-				</div>
-			</div>
+			{/each}
 		</div>
 
 		<!-- TABLE -->
@@ -358,16 +415,14 @@
 			<!-- TOOLBAR -->
 			<div class="flex flex-wrap items-center justify-between gap-3 pb-4">
 				<div class="relative w-full sm:w-72">
-					<Input type="search" placeholder="Search sub categories..." aria-label="Search sub categories" bind:value={search}/>
+					<Input type="search" placeholder="Search sub categories..." aria-label="Search sub categories" bind:value={search} />
 				</div>
 
 				<div class="flex flex-wrap items-center gap-2">
 					{#if hasActiveFilters}
-						<Button type="button" onclick={clearFilters} color="alternative" class="px-3 py-2 text-xs font-medium">
-							Clear filters
-						</Button>
+						<Button type="button" onclick={clearFilters} color="alternative" class="px-3 py-2">Clear filters</Button>
 					{/if}
-					<Select aria-label="Filter by category"  bind:value={filterCategoryId} size="sm" class="w-48"/>
+					<Select aria-label="Filter by category" items={categoryFilterItems} bind:value={filterCategoryId} size="sm" class="w-48" />
 				</div>
 			</div>
 
@@ -375,18 +430,20 @@
 				<Table hoverable={true}>
 					<TableHead>
 						<TableHeadCell>
-							<Checkbox type="checkbox" checked={allSelected} onchange={toggleAll} class="h-4 w-4" aria-label="Select all sub categories"/>
+							<Checkbox checked={allSelected} onchange={toggleAll} class="h-4 w-4" aria-label="Select all sub categories" />
 						</TableHeadCell>
 						{#each columns as col (col.key)}
 							<TableHeadCell class="px-4 py-3">
-								{#if col.sortable}
-									<button type="button" onclick={() => sortBy(col.key)} class="inline-flex items-center gap-1.5 transition hover:text-gray-900 {sortKey === col.key ? 'text-gray-900' : ''}">
-										{col.label}
-										<ChevronDownOutline class="h-3.5 w-3.5 transition {sortKey === col.key ? 'text-[#0278BD]' : ''} {sortKey === col.key && sortDir === 'asc' ? 'rotate-180' : ''}"/>
-									</button>
-								{:else}
+								<button
+									type="button"
+									onclick={() => sortBy(col.key)}
+									class="inline-flex items-center gap-1.5 transition hover:text-gray-900 {sortKey === col.key ? 'text-gray-900' : ''}"
+								>
 									{col.label}
-								{/if}
+									<ChevronDownOutline
+										class="h-3.5 w-3.5 transition {sortKey === col.key ? 'text-[#0278BD]' : ''} {sortKey === col.key && sortDir === 'asc' ? 'rotate-180' : ''}"
+									/>
+								</button>
 							</TableHeadCell>
 						{/each}
 						<TableHeadCell class="px-4 py-3 text-right">Actions</TableHeadCell>
@@ -395,14 +452,14 @@
 					<TableBody>
 						{#if loading}
 							{#each [1, 2, 3, 4, 5] as n (n)}
-								<tr>
+								<TableBodyRow>
 									<td colspan={colSpan} class="px-4 py-3">
 										<div class="h-9 animate-pulse rounded-lg bg-gray-100"></div>
 									</td>
-								</tr>
+								</TableBodyRow>
 							{/each}
 						{:else if sorted.length === 0}
-							<tr>
+							<TableBodyRow>
 								<td colspan={colSpan} class="px-5 py-16 text-center">
 									<div class="mx-auto flex max-w-sm flex-col items-center">
 										<div class="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100 text-gray-400">
@@ -412,68 +469,76 @@
 											{subcategories.length === 0 ? 'No sub categories yet' : 'No sub categories found'}
 										</p>
 										<p class="mt-1 text-xs text-gray-400">
-											{subcategories.length === 0 ? 'Add your first sub category to get started.' : 'Try changing your search or filters.'}
+											{subcategories.length === 0
+												? 'Add your first sub category to get started.'
+												: 'Try changing your search or filters.'}
 										</p>
 									</div>
 								</td>
-							</tr>
+							</TableBodyRow>
 						{:else}
-							{#each sorted as s (s.id)}
-								<tr class="border-b border-gray-100 transition-colors hover:bg-gray-50/70 {selected.includes(s.id) ? 'bg-sky-50/50' : ''} {editing?.id === s.id ? 'bg-sky-50' : ''}">
+							{#each paginated as s (s.id)}
+								<TableBodyRow class={editing?.id === s.id ? 'bg-sky-50' : ''}>
 									<!-- CHECKBOX -->
-									<td class="px-4 py-3">
-										<Checkbox type="checkbox" value={s.id} bind:group={selected} class="h-4 w-4" aria-label="Select {s.name}"/>
-									</td>
+									<TableBodyCell class="w-2 px-4 py-3">
+										<Checkbox value={s.id} bind:group={selected} class="h-4 w-4" aria-label="Select {s.name}" />
+									</TableBodyCell>
 
 									<!-- NAME -->
-									<td class="px-4 py-3">
+									<TableBodyCell class="px-4 py-3">
 										<div class="flex items-center gap-3">
-											<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-xs font-semibold text-indigo-600">
-												{s.name.trim().slice(0, 2).toUpperCase()}
-											</div>
-											<p class="max-w-[240px] truncate font-medium text-gray-800" title={s.name}>
-												{s.name}
-											</p>
+											<p class="max-w-[240px] truncate text-xs font-medium text-gray-800" title={s.name}>{s.name}</p>
 										</div>
-									</td>
+									</TableBodyCell>
 
 									<!-- CATEGORY -->
-									<td class="px-4 py-3">
+									<TableBodyCell class="px-4 py-3">
 										<Badge color="blue">{categoryName(s.categoryId)}</Badge>
-									</td>
+									</TableBodyCell>
 
 									<!-- DESCRIPTION -->
-									<td class="px-4 py-3 text-gray-600">
+									<TableBodyCell class="px-4 py-3 text-gray-600">
 										{#if s.description}
-											<p class="max-w-[280px] truncate" title={s.description}>{s.description}</p>
+											<Badge color="blue">...</Badge>
 										{:else}
 											<Badge color="gray">None</Badge>
 										{/if}
-									</td>
+									</TableBodyCell>
+
+									<!-- STATUS -->
+									<TableBodyCell class="px-4 py-3">
+										<Toggle
+											color="green"
+											size="small"
+											checked={s.isActive}
+											disabled={togglingId === s.id}
+											onchange={() => toggleActive(s)}
+											aria-label="{s.isActive ? 'Deactivate' : 'Activate'} {s.name}"
+										/>
+									</TableBodyCell>
 
 									<!-- CREATED -->
-									<td class="px-4 py-3 text-xs text-gray-500">{formatDate(s.createdAt)}</td>
+									<TableBodyCell class="px-4 py-3 text-xs text-gray-500">{formatDate(s.createdAt)}</TableBodyCell>
 
 									<!-- ACTIONS -->
-									<td class="px-4 py-3 text-right">
+									<TableBodyCell class="px-4 py-3 text-right">
 										{#if confirmingId === s.id}
 											<div class="inline-flex items-center gap-2">
-												<span class="text-xs text-gray-500">Delete?</span>
 												<Button
 													type="button"
-													onclick={() => removeSubcategory(s.id)}
+													onclick={() => remove(s.id)}
 													disabled={deletingId === s.id}
 													color="red"
-													class="rounded-lg px-2.5 py-1 text-xs font-medium text-white transition disabled:opacity-50"
+													class="px-2.5 py-1 text-xs font-medium text-white transition disabled:opacity-50"
 												>
-													{deletingId === s.id ? 'Deleting...' : 'Yes'}
+													{deletingId === s.id ? 'Deleting...' : 'Delete?'}
 												</Button>
 												<Button
 													type="button"
 													onclick={() => (confirmingId = null)}
 													disabled={deletingId === s.id}
 													color="alternative"
-													class="rounded-lg px-2.5 py-1 text-xs font-medium transition"
+													class="px-2.5 py-1 text-xs font-medium transition"
 												>
 													Cancel
 												</Button>
@@ -498,8 +563,8 @@
 												</button>
 											</div>
 										{/if}
-									</td>
-								</tr>
+									</TableBodyCell>
+								</TableBodyRow>
 							{/each}
 						{/if}
 					</TableBody>
@@ -507,36 +572,71 @@
 			</div>
 
 			<!-- FOOTER -->
-			<div class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-4 py-3">
-				<span class="text-xs text-gray-500">
-					{#if selected.length > 0}
-						{selected.length} selected
-					{:else}
-						Showing {sorted.length} of {subcategories.length} sub categories
-					{/if}
-				</span>
-
-				<div class="flex items-center gap-2 text-xs text-gray-500">
-					<span>Rows per page</span>
-					<span class="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-gray-600">
-						{sorted.length}
+			<div class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 py-3">
+				<div class="flex items-center gap-3 text-xs text-gray-500">
+					<div class="w-20">
+						<Select size="sm" items={pageSizeItems} bind:value={pageSizeValue} />
+					</div>
+					<span>
+						{#if selected.length > 0}
+							{selected.length} selected
+						{:else}
+							{rangeStart}–{rangeEnd} of {sorted.length}
+						{/if}
 					</span>
 				</div>
+
+				<nav class="flex items-center gap-1" aria-label="Pagination">
+					<button
+						type="button"
+						onclick={() => (currentPage = Math.max(1, page - 1))}
+						disabled={page === 1}
+						class="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+					>
+						Previous
+					</button>
+
+					{#each pageNumbers as n, i (i)}
+						{#if n === '…'}
+							<span class="px-2 text-xs text-gray-400">…</span>
+						{:else}
+							<button
+								type="button"
+								onclick={() => (currentPage = n)}
+								aria-current={n === page ? 'page' : undefined}
+								class="min-w-8 rounded-lg px-2.5 py-1.5 text-xs font-medium transition
+									{n === page ? 'bg-[#0278BD] text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'}"
+							>
+								{n}
+							</button>
+						{/if}
+					{/each}
+
+					<button
+						type="button"
+						onclick={() => (currentPage = Math.min(totalPages, page + 1))}
+						disabled={page === totalPages}
+						class="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+					>
+						Next
+					</button>
+				</nav>
 			</div>
 		</section>
 	</div>
 
 	<!-- RIGHT: ASIDE (add or edit) -->
-	{#if showAddPanel}
+	{#if panel}
 		<aside
 			class="sticky top-4 flex max-h-[calc(100vh-2rem)] w-full max-w-sm shrink-0 flex-col rounded-xl border border-gray-200 bg-white"
-			aria-label="Add sub category"
+			aria-label="{editing ? 'Edit' : 'Add'} sub category"
 		>
 			<div class="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-				<h2 class="heading-2">Add Sub Category</h2>
+				<h2 class="heading-2">{editing ? 'Edit' : 'Add'} Sub Category</h2>
 				<button
 					type="button"
-					onclick={closeAdd}
+					onclick={closePanel}
+					disabled={busy}
 					aria-label="Close"
 					class="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
 				>
@@ -544,15 +644,16 @@
 				</button>
 			</div>
 
-			<form onsubmit={addSubcategory} class="flex min-h-0 flex-1 flex-col">
+			<form onsubmit={submit} class="flex min-h-0 flex-1 flex-col">
 				<div class="flex-1 space-y-5 overflow-y-auto px-5 py-5">
+					<!-- CATEGORY (locked while editing; use the move endpoint to change it) -->
 					<div>
-						<label for="sub-category" class="label">Category <span class="text-red-500">*</span></label>
+						<label for="sub-category" class="label">Category {#if !editing}<span class="text-red-500">*</span>{/if}</label>
 						<Select
 							id="sub-category"
 							items={categoryItems}
-							bind:value={categoryId}
-							disabled={loading || categories.length === 0}
+							bind:value={form.categoryId}
+							disabled={!!editing || loading || categories.length === 0}
 							placeholder={loading ? 'Loading…' : categories.length === 0 ? 'No categories yet' : 'Select a category'}
 						/>
 						{#if !loading && categories.length === 0}
@@ -560,17 +661,32 @@
 						{/if}
 					</div>
 
+					<!-- NAME -->
 					<div>
 						<label for="sub-name" class="label">Name <span class="text-red-500">*</span></label>
-						<Input id="sub-name" placeholder="e.g. Botox" bind:value={name}/>
+						<Input id="sub-name" placeholder="e.g. Botox" bind:value={form.name} />
 					</div>
 
+					<!-- DESCRIPTION -->
 					<div>
 						<div class="mb-2 flex items-center justify-between">
 							<label for="sub-desc" class="label">Description</label>
-							<span class="text-xs text-gray-400">{description.length}/200</span>
+							<span class="text-xs text-gray-400">{form.description.length}/200</span>
 						</div>
-						<Textarea id="sub-desc" class="w-full resize-none" rows={3} placeholder="Optional. What kind of products belong here?"bind:value={description}/>
+						<Textarea
+							id="sub-desc"
+							class="w-full resize-none"
+							rows={3}
+							maxlength={200}
+							placeholder="Optional. What kind of products belong here?"
+							bind:value={form.description}
+						/>
+					</div>
+
+					<!-- STATUS -->
+					<div>
+						<Toggle color="green" bind:checked={form.isActive}>Active</Toggle>
+						<p class="mt-1.5 text-xs text-gray-400">Inactive sub categories are kept but hidden from the storefront.</p>
 					</div>
 
 					{#if formError}
@@ -579,61 +695,9 @@
 				</div>
 
 				<div class="flex justify-end gap-3 border-t border-gray-100 bg-white px-5 py-4">
-					<Button type="button" color="light" onclick={closeAdd} disabled={adding}>Cancel</Button>
-					<Button type="submit" disabled={adding || loading || categories.length === 0}>
-						{adding ? 'Saving...' : 'Save'}
-					</Button>
-				</div>
-			</form>
-		</aside>
-	{:else if editing}
-		<aside
-			class="sticky top-4 flex max-h-[calc(100vh-2rem)] w-full max-w-sm shrink-0 flex-col rounded-xl border border-gray-200 bg-white"
-			aria-label="Edit sub category"
-		>
-			<div class="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-				<div>
-					<h2 class="text-base font-semibold text-gray-800">Edit Sub Category</h2>
-					<p class="mt-0.5 text-xs text-gray-500">
-						In <span class="font-medium text-gray-700">{categoryName(editing.categoryId)}</span>
-					</p>
-				</div>
-				<button
-					type="button"
-					onclick={closeEdit}
-					aria-label="Close"
-					class="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
-				>
-					<CloseOutline class="h-5 w-5" />
-				</button>
-			</div>
-
-			<form onsubmit={saveEdit} class="flex min-h-0 flex-1 flex-col">
-				<div class="flex-1 space-y-5 overflow-y-auto px-5 py-5">
-					<div>
-						<label for="edit-name" class="mb-2 block text-sm font-medium text-gray-700">
-							Name <span class="text-red-500">*</span>
-						</label>
-						<Input id="edit-name"  type="text" bind:value={editName} />
-					</div>
-
-					<div>
-						<div class="mb-2 flex items-center justify-between">
-							<label for="edit-desc" class="label">Description</label>
-							<span class="text-xs text-gray-400">{editDescription.length}/200</span>
-						</div>
-						<Textarea id="edit-desc" class="w-full resize-none" rows={3} bind:value={editDescription}/>
-					</div>
-
-					{#if editError}
-						<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600" role="alert">{editError}</p>
-					{/if}
-				</div>
-
-				<div class="flex justify-end gap-3 border-t border-gray-100 bg-white px-5 py-4">
-					<Button type="button" color="light" onclick={closeEdit} disabled={saving}>Cancel</Button>
-					<Button type="submit" class="btn-secondary" disabled={saving}>
-						{saving ? 'Saving...' : 'Save changes'}
+					<Button type="button" color="light" onclick={closePanel} disabled={busy}>Cancel</Button>
+					<Button type="submit" disabled={busy || loading || categories.length === 0}>
+						{busy ? 'Saving...' : editing ? 'Save changes' : 'Save'}
 					</Button>
 				</div>
 			</form>
