@@ -20,8 +20,7 @@ export const GET: RequestHandler = async ({ params }) => {
 	}
 };
 
-// Only name and description can change. Moving a subcategory to another category is not
-// allowed because its products reference (id, categoryId).
+
 export const PATCH: RequestHandler = async ({ params, request }) => {
 	try {
 		if (!isUuid(params.id)) {
@@ -43,6 +42,13 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 		}
 		if ('description' in payload) values.description = cleanText(payload.description);
 
+		if ('isActive' in payload) {
+			if (typeof payload.isActive !== 'boolean') {
+				return Response.json({ success: false, message: 'isActive must be true or false.' }, { status: 400 });
+			}
+			values.isActive = payload.isActive;
+		}
+		
 		if (Object.keys(values).length === 0) {
 			return Response.json({ success: false, message: 'Nothing to update.' }, { status: 400 });
 		}

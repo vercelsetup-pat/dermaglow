@@ -1,14 +1,14 @@
 import type { RequestHandler } from './$types';
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import { db } from '#lib/db/index.ts';
 import { subcategories } from '#lib/db/schema.ts';
 import { asObject, cleanText, isUuid, pgCode } from '#lib/validate.ts';
 
-// GET /api/subcategories                    -> all
-// GET /api/subcategories?categoryId=<uuid>  -> those of one category
+
 export const GET: RequestHandler = async ({ url }) => {
 	try {
 		const categoryId = url.searchParams.get('categoryId');
+		const activeOnly = url.searchParams.get('active') === 'true';
 		if (categoryId && !isUuid(categoryId)) {
 			return Response.json({ success: false, message: 'Invalid categoryId.' }, { status: 400 });
 		}
@@ -16,7 +16,10 @@ export const GET: RequestHandler = async ({ url }) => {
 		const result = await db
 			.select()
 			.from(subcategories)
-			.where(categoryId ? eq(subcategories.categoryId, categoryId) : undefined)
+			.where(and(
+					categoryId ? eq(subcategories.categoryId, categoryId) : undefined,
+					activeOnly ? eq(subcategories.isActive, true) : undefined
+				))
 			.orderBy(asc(subcategories.name));
 
 		return Response.json({ success: true, data: result });
@@ -46,7 +49,8 @@ export const POST: RequestHandler = async ({ request }) => {
 			.values({
 				categoryId: payload.categoryId,
 				name,
-				description: cleanText(payload.description)
+				description: cleanText(payload.description),
+				isActive: typeof payload.isActive === 'boolean' ? payload.isActive : true
 			})
 			.returning();
 

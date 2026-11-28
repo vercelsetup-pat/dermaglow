@@ -31,6 +31,7 @@ export interface Subcategory {
 	categoryId: string;
 	name: string;
     createdAt: string;
+	isActive: boolean,
 	description: string | null;
 }
 
