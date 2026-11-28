@@ -2,111 +2,42 @@
 	import { onMount } from 'svelte';
 	import type { Category, Subcategory, Product } from '#lib/types.ts';
 	import {
-        PlusOutline,
-        TrashBinOutline,
-        LayersOutline,
-        CheckCircleOutline,
-        ExclamationCircleOutline,
-        CloseCircleOutline,
-        EditOutline,
-        SearchOutline,
-        ChevronDownOutline,
-        FilterOutline,
-        CloseOutline,
+		PlusOutline,
+		TrashBinOutline,
+		LayersOutline,
+		CheckCircleOutline,
+		ExclamationCircleOutline,
+		CloseCircleOutline,
+		EditOutline,
+		SearchOutline,
+		ChevronDownOutline,
+		FilterOutline,
+		CloseOutline,
 		ArrowDownToBracketOutline
-    } from 'flowbite-svelte-icons';
- 	import { Button, Toggle, Badge,Checkbox, Input, Select, Textarea, Table, TableBody, TableBodyCell, TableBodyRow, TableHead, TableHeadCell  } from 'flowbite-svelte';
+	} from 'flowbite-svelte-icons';
 
-	let pageSizeValue = $state('8');
-	let currentPage = $state(1);
-	let togglingId = $state<string | null>(null);
+	import { Button, Toggle, Badge, Checkbox, Input, Select, Textarea, Table, TableBody, TableBodyCell, TableBodyRow, TableHead, TableHeadCell } from 'flowbite-svelte';
 
-	async function toggleActive(p: Product) {
-			if (togglingId === p.id) return;
+	type SortKey = | 'name' | 'price' | 'category' | 'subcategory' | 'description' | 'quantity' | 'status';
+	type ImageTarget = 'add' | 'edit';
+	type Column = {
+		key: SortKey;
+		label: string;
+		sortable?: boolean;
+	};
+	type Toast = {
+		type: 'success' | 'error';
+		text: string;
+	};
 
-			const next = !p.isActive;
-			togglingId = p.id;
-
-			// optimistic update: the switch responds instantly
-			products = products.map((x) => (x.id === p.id ? { ...x, isActive: next } : x));
-
-			try {
-				const updated = await api<Product>(`${API}/${p.id}`, {
-					method: 'PATCH',
-					body: JSON.stringify({ isActive: next })
-				});
-				products = products.map((x) => (x.id === updated.id ? { ...x, ...updated } : x));
-				notify('success', next ? 'Product activated.' : 'Product deactivated.');
-			} catch (err) {
-				// roll back if the server refused
-				products = products.map((x) => (x.id === p.id ? { ...x, isActive: !next } : x));
-				notify('error', err instanceof Error ? err.message : 'Could not update status.');
-			} finally {
-				togglingId = null;
-			}
-	}
-
-	//#region Boolean Variables
-		let loading = $state(true);
-		let saving = $state(false);
-		let adding = $state(false);
-		let showAddModal = $state(false);
-    	let showFilters = $state(false);
-	//#endregion
-
-	//#region String Varibales
-		let categoryId = $state('');
-		let subcategoryId = $state('');
-		let filterCategoryId = $state('');
-		let filterSubId = $state('');
-		let search = $state('');
-		let name = $state('');
-		let description = $state('');
-	
-		let formError = $state('');
-		let editCategoryId = $state('');
-		let editSubcategoryId = $state('');
-		let editName = $state('');
-		let editDescription = $state('');
-		let editQuantity = $state<string | number>('');
-		let editError = $state('');
-		let imagePreview = $state('');
-		let editImageFile = $state<File | null>(null);
-		let editImagePreview = $state('');
-	//#endregion
-
-	//#region Other Varianles
-		let categories = $state<Category[]>([]);
-		let subcategories = $state<Subcategory[]>([]);
-		let products = $state<Product[]>([]);
-		let price = $state<string | number>('');
-		let quantity = $state<string | number>('');
-		let editing = $state<Product | null>(null);
-		let editPrice = $state<string | number>('');
-		let confirmingId = $state<string | null>(null);
-		let deletingId = $state<string | null>(null);
-		let toast = $state<{ type: 'success' | 'error'; text: string } | null>(null);
-		let toastTimer: ReturnType<typeof setTimeout> | undefined;
-		let selected = $state<string[]>([]);
-		let sortDir = $state<'asc' | 'desc'>('desc');
-		let sortKey = $state<SortKey>('name');
-		let imageFile = $state<File | null>(null);
-	//#endregion
-	
-	//#region Variables Tyes & Constant
-		type SortKey = 'name' | 'price' | 'category' | 'subcategory' | 'description' | 'quantity' | 'status';
-		type Column = {
-			key: SortKey;
-			label: string;
-			sortable?: boolean;
-		};
-
+	//#region Variables Constants
 		const CATEGORIES_API = '/api/categories';
 		const SUBCATEGORIES_API = '/api/subcategories';
 		const API = '/api/products';
-		const NONE = '__none__'; 
-		const MAX_IMAGE_SIZE = 5 * 1024 * 1024; 
+		const NONE = '__none__';
+		const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 
+		const ALLOWED_IMAGE_TYPES = [ 'image/jpeg','image/png','image/webp'];
 		const columns: Column[] = [
 			{ key: 'name', label: 'Product Name', sortable: true },
 			{ key: 'price', label: 'Price', sortable: true },
@@ -116,148 +47,399 @@
 			{ key: 'quantity', label: 'Quantity', sortable: true },
 			{ key: 'status', label: 'Status', sortable: true }
 		];
-	
+	//#endregion
 
-		const categoryNames = $derived(new Map(categories.map((c) => [c.id, c.name])));
-		const subNames = $derived(new Map(subcategories.map((s) => [s.id, s.name])));
+	//#region Variables Boolean
+		let loading = $state(true);
+		let saving = $state(false);
+		let adding = $state(false);
+
+		let showAddModal = $state(false);
+		let showFilters = $state(false);
+	//#endregion
+
+	//#region Type State Variables
+		let categories = $state<Category[]>([]);
+		let subcategories = $state<Subcategory[]>([]);
+		let products = $state<Product[]>([]);
+
+		let editing = $state<Product | null>(null);
+
+		let selected = $state<string[]>([]);
+
 		let imageErrors = $state(new Set<string>());
-		const formSubs = $derived(subcategories.filter((s) => s.categoryId === categoryId));
-		const totalProducts = $derived(products.length);
-		const inStock = $derived(
-			products.filter((p) => Number(p.quantity) > 5).length
+	//#endregion
+
+	//#region String Variables
+		let name = $state('');
+		let price = $state<string | number>('');
+		let quantity = $state<string | number>('');
+		let description = $state('');
+		let categoryId = $state('');
+		let subcategoryId = $state('');
+		let formError = $state('');
+		let imageFile = $state<File | null>(null);
+		let imagePreview = $state('');
+
+		// edit product state
+		let editName = $state('');
+		let editPrice = $state<string | number>('');
+		let editQuantity = $state<string | number>('');
+		let editDescription = $state('');
+		let editCategoryId = $state('');
+		let editSubcategoryId = $state('');
+		let editError = $state('');
+		let editImageFile = $state<File | null>(null);
+		let editImagePreview = $state('');
+		// filter and search state
+		let search = $state('');
+		let filterCategoryId = $state('');
+		let filterSubId = $state('');
+		// pagination adn sorting state 
+		let pageSizeValue = $state('8');
+		let currentPage = $state(1);
+		let sortKey = $state<SortKey>('name');
+		let sortDir = $state<'asc' | 'desc'>('desc');
+		// action state
+		let togglingId = $state<string | null>(null);
+		let confirmingId = $state<string | null>(null);
+		let deletingId = $state<string | null>(null);
+	//#endregion
+
+	let toast = $state<Toast | null>(null);
+	let toastTimer: ReturnType<typeof setTimeout> | undefined;
+
+	//#region Derivided Data
+		const categoryNames = $derived(
+			new Map(categories.map((category) => [category.id, category.name]))
 		);
 
-		const editSubs = $derived(subcategories.filter((s) => s.categoryId === editCategoryId));
-		const editSubcategoryItems = $derived(editSubs.map((s) => ({ value: s.id, name: s.name })));
-		const categoryItems = $derived(categories.map((c) => ({ value: c.id, name: c.name })));
-		const subcategoryItems = $derived(formSubs.map((s) => ({ value: s.id, name: s.name })));
-		const lowStock = $derived(products.filter( (p) => Number(p.quantity) > 0 && Number(p.quantity) <= 5).length);
-		const outOfStock = $derived(products.filter((p) => Number(p.quantity) <= 0).length);
-		const catName = (id: string | null) => (id ? (categoryNames.get(id) ?? 'Unknown category') : '');
-		const subName = (id: string | null) => (id ? (subNames.get(id) ?? 'Unknown subcategory') : '');
-		const money = (v: number | string) => `$${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+		const subNames = $derived( new Map(subcategories.map((subcategory) => [ subcategory.id, subcategory.name ])));
+		const categoryItems = $derived( categories.map((category) => ({ value: category.id, name: category.name})));
+		const formSubs = $derived(
+			subcategories.filter((subcategory) => subcategory.categoryId === categoryId)
+		);
 
-		const filtered = $derived.by(() => {
-			const q = search.trim().toLowerCase();
-			return products.filter((p) => {
-				if (filterCategoryId === NONE) {
-					if (p.categoryId) return false;
-				} else if (filterCategoryId && p.categoryId !== filterCategoryId) {
-					return false;
-				}
-				if (filterSubId === NONE && p.subcategoryId) return false;
-				if (filterSubId && filterSubId !== NONE && p.subcategoryId !== filterSubId) return false;
-				if (!q) return true;
-				return (
-					p.name.toLowerCase().includes(q) ||
-					(p.description ?? '').toLowerCase().includes(q) ||
-					catName(p.categoryId).toLowerCase().includes(q) ||
-					subName(p.subcategoryId).toLowerCase().includes(q)
-				);
-			});
-		});
+		const editSubs = $derived( subcategories.filter((subcategory) => subcategory.categoryId === editCategoryId));
+		const subcategoryItems = $derived( formSubs.map((subcategory) => ({ value: subcategory.id, name: subcategory.name})));
+		const editSubcategoryItems = $derived( editSubs.map((subcategory) => ({ value: subcategory.id,name: subcategory.name})));
+		const totalProducts = $derived(products.length);
+		const inStock = $derived(products.filter((product) => Number(product.quantity) > 5).length);
+		const lowStock = $derived( products.filter((product) => {const quantity = Number(product.quantity); return quantity > 0 && quantity <= 5;}).length);
+		const outOfStock = $derived(products.filter((product) => Number(product.quantity) <= 0).length);
+
+		const catName = (id: string | null) => id ? (categoryNames.get(id) ?? 'Unknown category') : '';
+		const subName = (id: string | null) => id ? (subNames.get(id) ?? 'Unknown subcategory') : '';
+		const money = (value: number | string) => `$${Number(value).toLocaleString('en-US', { minimumFractionDigits: 2,maximumFractionDigits: 2})}`;
 	//#endregion
 
 	//#region Functions
-		function handleImageChange(event: Event) {
+		function notify(type: Toast['type'], text: string) {
+			toast = { type, text };
+			if (toastTimer) {clearTimeout(toastTimer);}
+			toastTimer = setTimeout(() => {
+				toast = null;
+				toastTimer = undefined;
+			}, 3000);
+		}
+
+		//validation
+		function validPrice(value: number | string | null) {
+			const input = String(value ?? '').trim();
+			if (!input) return false;
+			const number = Number(input);
+			return Number.isFinite(number) && number >= 0;
+		}
+
+		function validQuantity(value: number | string | null) {
+			const input = String(value ?? '').trim();
+
+			if (!input) return true;
+
+			const number = Number(input);
+
+			return Number.isInteger(number) && number >= 0;
+		}
+
+		function validateProduct(
+			productName: string,
+			productPrice: number | string,
+			productQuantity: number | string,
+			setError: (message: string) => void
+		) {
+			if (!productName.trim()) {
+				setError('Enter a product name.');
+				return false;
+			}
+
+			if (!validPrice(productPrice)) {
+				setError('Enter a valid price (0 or more).');
+				return false;
+			}
+
+			if (!validQuantity(productQuantity)) {
+				setError('Quantity must be a whole number (0 or more).');
+				return false;
+			}
+
+			setError('');
+
+			return true;
+		}
+
+		function clearImage(target: ImageTarget) {
+			if (target === 'add') {
+				if (imagePreview) {URL.revokeObjectURL(imagePreview);}
+				imageFile = null;
+				imagePreview = '';
+				return;
+			}
+			if (editImagePreview) {URL.revokeObjectURL(editImagePreview);}
+			editImageFile = null;
+			editImagePreview = '';
+		}
+
+		function handleImageSelection(event: Event, target: ImageTarget) {
 			const input = event.currentTarget as HTMLInputElement;
 			const file = input.files?.[0];
 
 			if (!file) return;
 
-			formError = '';
+			const setError = (message: string) => {
+				if (target === 'add') {
+					formError = message;
+				} else {
+					editError = message;
+				}
+			};
 
-			if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-				formError = 'Please upload a JPG, PNG, or WEBP image.';
+			setError('');
+
+			if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+				setError('Please upload a JPG, PNG, or WEBP image.');
 				input.value = '';
 				return;
 			}
 
 			if (file.size > MAX_IMAGE_SIZE) {
-				formError = 'Image size must not exceed 5 MB.';
+				setError('Image size must not exceed 5 MB.');
 				input.value = '';
 				return;
 			}
 
-			if (imagePreview) URL.revokeObjectURL(imagePreview);
+			clearImage(target);
 
-			imageFile = file;
-			imagePreview = URL.createObjectURL(file);
+			const preview = URL.createObjectURL(file);
+
+			if (target === 'add') {
+				imageFile = file;
+				imagePreview = preview;
+			} else {
+				editImageFile = file;
+				editImagePreview = preview;
+			}
 		}
 
-		function validQuantity(value: number | string | null) {
-			const s = String(value ?? '').trim();
-			if (s === '') return true; // empty = 0, same as the API
-			const n = Number(s);
-			return Number.isInteger(n) && n >= 0;
+		function handleImageChange(event: Event) {
+			handleImageSelection(event, 'add');
 		}
+
+		function handleEditImageChange(event: Event) {
+			handleImageSelection(event, 'edit');
+		}
+
 		function removeImage() {
-			if (imagePreview) URL.revokeObjectURL(imagePreview);
-			imageFile = null;
-			imagePreview = '';
+			clearImage('add');
+		}
+
+		function clearEditImage() {
+			clearImage('edit');
+		}
+
+		const filtered = $derived.by(() => {
+			const query = search.trim().toLowerCase();
+
+			return products.filter((product) => {
+				// Category filter
+				if (filterCategoryId === NONE) {
+					if (product.categoryId) return false;
+				} else if (
+					filterCategoryId &&
+					product.categoryId !== filterCategoryId
+				) {
+					return false;
+				}
+
+				// Subcategory filter
+				if (filterSubId === NONE && product.subcategoryId) {
+					return false;
+				}
+
+				if (
+					filterSubId &&
+					filterSubId !== NONE &&
+					product.subcategoryId !== filterSubId
+				) {
+					return false;
+				}
+
+				// Search
+				if (!query) return true;
+
+				return (
+					product.name.toLowerCase().includes(query) ||
+					(product.description ?? '').toLowerCase().includes(query) ||
+					catName(product.categoryId).toLowerCase().includes(query) ||
+					subName(product.subcategoryId).toLowerCase().includes(query)
+				);
+			});
+		});
+
+		const hasActiveFilters = $derived(
+			!!filterCategoryId ||
+			!!filterSubId ||
+			!!search.trim()
+		);
+
+		function clearFilters() {
+			filterCategoryId = '';
+			filterSubId = '';
+			search = '';
 		}
 
 		function sortBy(key: SortKey) {
-			if (sortKey === key) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
-			else {
+			if (sortKey === key) {
+				sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+			} else {
 				sortKey = key;
 				sortDir = 'asc';
 			}
 		}
 
-		function notify(type: 'success' | 'error', text: string) {
-			toast = { type, text };
-			clearTimeout(toastTimer);
-			toastTimer = setTimeout(() => (toast = null), 3000);
-		}
+		const sorted = $derived.by(() => {
+			const direction = sortDir === 'asc' ? 1 : -1;
 
-		function validPrice(value: number | string | null) {
-			const s = String(value ?? '').trim();
-			if (s === '') return false;
-			const n = Number(s);
-			return Number.isFinite(n) && n >= 0;
-		}
+			return [...filtered].sort((a, b) => {
+				switch (sortKey) {
+					case 'name':
+						return a.name.localeCompare(b.name) * direction;
 
-		function handleEditImageChange(event: Event) {
-			const input = event.currentTarget as HTMLInputElement;
-			const file = input.files?.[0];
-			if (!file) return;
+					case 'price':
+						return (Number(a.price) - Number(b.price)) * direction;
 
-			editError = '';
+					case 'category':
+						return (
+							catName(a.categoryId).localeCompare(catName(b.categoryId)) *
+							direction
+						);
 
-			if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-				editError = 'Please upload a JPG, PNG, or WEBP image.';
-				input.value = '';
-				return;
+					case 'subcategory':
+						return (
+							subName(a.subcategoryId).localeCompare(subName(b.subcategoryId)) *
+							direction
+						);
+
+					case 'description':
+						return (
+							(a.description ?? '').localeCompare(b.description ?? '') *
+							direction
+						);
+
+					case 'quantity':
+						return (
+							(Number(a.quantity) - Number(b.quantity)) *
+							direction
+						);
+
+					case 'status':
+						return (
+							(Number(a.isActive) - Number(b.isActive)) *
+							direction
+						);
+
+					default:
+						return 0;
+				}
+			});
+		});
+
+		const pageSize = $derived(Number(pageSizeValue));
+		const totalPages = $derived(Math.max(1, Math.ceil(sorted.length / pageSize)));
+		const paginated = $derived(
+			sorted.slice(
+				(currentPage - 1) * pageSize,
+				currentPage * pageSize
+			)
+		);
+
+		const rangeStart = $derived(sorted.length === 0 ? 0 : (currentPage - 1) * pageSize + 1);
+		const rangeEnd = $derived( Math.min(currentPage * pageSize, sorted.length));
+
+		const pageNumbers = $derived.by(() => {
+			const total = totalPages;
+			const current = currentPage;
+
+			if (total <= 5) {
+				return Array.from({ length: total }, (_, index) => index + 1);
 			}
 
-			if (file.size > MAX_IMAGE_SIZE) {
-				editError = 'Image size must not exceed 5 MB.';
-				input.value = '';
-				return;
+			const pages: (number | '…')[] = [1];
+
+			const start = Math.max(2, current - 1);
+			const end = Math.min(total - 1, current + 1);
+
+			if (start > 2) {
+				pages.push('…');
 			}
 
-			if (editImagePreview) URL.revokeObjectURL(editImagePreview);
-			editImageFile = file;
-			editImagePreview = URL.createObjectURL(file);
+			for (let page = start; page <= end; page++) {
+				pages.push(page);
+			}
+
+			if (end < total - 1) {
+				pages.push('…');
+			}
+
+			pages.push(total);
+
+			return pages;
+		});
+
+		const allSelected = $derived(
+			paginated.length > 0 &&
+			paginated.every((product) => selected.includes(product.id))
+		);
+
+		function toggleAll() {
+			selected = allSelected
+				? []
+				: paginated.map((product) => product.id);
 		}
 
-		function clearEditImage() {
-			if (editImagePreview) URL.revokeObjectURL(editImagePreview);
-			editImageFile = null;
-			editImagePreview = '';
-		}
+		const currentImage = $derived(
+			editing?.imageUrl && !imageErrors.has(editing.id)
+				? editing.imageUrl
+				: ''
+		);
 
-		function openEdit(p: Product) {
+		const shownImage = $derived(
+			editImagePreview || currentImage
+		);
+
+		function openEdit(product: Product) {
 			clearEditImage();
+
 			showAddModal = false;
-			editing = p;
-			editCategoryId = p.categoryId ?? '';
-			editSubcategoryId = p.subcategoryId ?? '';
-			editName = p.name;
-			editPrice = String(p.price);
-			editQuantity = String(p.quantity ?? 0);
-			editDescription = p.description ?? '';
+			editing = product;
+
+			editCategoryId = product.categoryId ?? '';
+			editSubcategoryId = product.subcategoryId ?? '';
+
+			editName = product.name;
+			editPrice = String(product.price);
+			editQuantity = String(product.quantity ?? 0);
+			editDescription = product.description ?? '';
+
 			editError = '';
 		}
 
@@ -266,16 +448,6 @@
 			clearEditImage();
 			editing = null;
 			editError = '';
-		}
-		
-		function toggleAll() {
-			selected = allSelected ? [] : paginated.map((p) => p.id);
-		}
-
-		function clearFilters() {
-			filterCategoryId = '';
-			filterSubId = '';
-			search = '';
 		}
 
 		function closeAddDrawer() {
@@ -286,42 +458,41 @@
 		}
 	//#endregion
 
-	//#region Async Functions
-		async function api<T>(url: string, init?: RequestInit): Promise<T> {
-			const isForm = init?.body instanceof FormData;
+	//#region ASYNC function
+		async function api<T>( url: string, init?: RequestInit): Promise<T> {
+			const headers = new Headers(init?.headers);
+			const isFormData = init?.body instanceof FormData;
 
-			const res = await fetch(url, {
+			if (!isFormData && init?.body && !headers.has('Content-Type')) {
+				headers.set('Content-Type', 'application/json');
+			}
+			const response = await fetch(url, {
 				...init,
-				headers: isForm ? init?.headers : { 'Content-Type': 'application/json', ...init?.headers }
+				headers
 			});
 
-			const body = await res.json().catch(() => null);
-			if (!res.ok || !body?.success) {
-				throw new Error(body?.message ?? 'Something went wrong. Please try again.');
+			const body = await response.json().catch(() => null);
+			if (!response.ok || !body?.success) {
+				throw new Error(
+					body?.message ?? 'Something went wrong. Please try again.'
+				);
 			}
 			return body.data as T;
 		}
 
-		async function addProduct(e: SubmitEvent) {
-			e.preventDefault();
-			formError = '';
+		async function addProduct(event: SubmitEvent) {
+			event.preventDefault();
 
-			if (!name.trim()) {
-				formError = 'Enter a product name.';
+			if (!validateProduct(
+					name,
+					price,
+					quantity,
+					(message) => (formError = message)
+				)
+			) {
 				return;
 			}
 
-			if (!validPrice(price)) {
-				formError = 'Enter a valid price (0 or more).';
-				return;
-			}
-
-			if (!validQuantity(quantity)) {
-				formError = 'Quantity must be a whole number (0 or more).';
-				return;
-			}
-
-			
 			adding = true;
 
 			try {
@@ -331,14 +502,13 @@
 				formData.append('price', String(price));
 				formData.append('description', description);
 				formData.append('categoryId', categoryId);
-				formData.append('subcategoryId', categoryId ? subcategoryId : '');
-				formData.append('quantity', String(quantity ?? '') || '0');
+				formData.append('subcategoryId',categoryId ? subcategoryId : '');
+				formData.append('quantity',String(quantity ?? '').trim() || '0');
 
 				if (imageFile) {
 					formData.append('image', imageFile);
 				}
 
-				
 				const created = await api<Product>(API, {
 					method: 'POST',
 					body: formData
@@ -346,63 +516,64 @@
 
 				products = [created, ...products];
 
+				// Reset form
 				name = '';
 				price = '';
+				quantity = '';
 				description = '';
 				categoryId = '';
 				subcategoryId = '';
-
 				removeImage();
 				showAddModal = false;
-
 				notify('success', 'Product added.');
-
-			} catch (err) {
-				formError = err instanceof Error ? err.message : 'Could not add product.';
+			} catch (error) {
+				formError = error instanceof Error ? error.message : 'Could not add product.';
 			} finally {
 				adding = false;
 			}
 		}
 
-		async function saveEdit(e: SubmitEvent) {
-			e.preventDefault();
+		async function saveEdit(event: SubmitEvent) {
+			event.preventDefault();
+
 			if (!editing) return;
 
-			if (!editName.trim()) {
-				editError = 'Enter a product name.';
-				return;
-			}
-			if (!validPrice(editPrice)) {
-				editError = 'Enter a valid price (0 or more).';
-				return;
-			}
-			if (!validQuantity(editQuantity)) {
-				editError = 'Quantity must be a whole number (0 or more).';
+			if (!validateProduct(
+					editName,
+					editPrice,
+					editQuantity,
+					(message) => (editError = message)
+				)
+			) {
 				return;
 			}
 
 			saving = true;
-			editError = '';
-			try {
-				const quantityValue = String(editQuantity).trim() === '' ? 0 : Number(editQuantity);
-				let init: RequestInit;
 
+			try {
+				const quantityValue =
+					String(editQuantity).trim() === '' ? 0 : Number(editQuantity);
+
+				let request: RequestInit;
 				if (editImageFile) {
-					const fd = new FormData();
-					fd.append('name', editName.trim());
-					fd.append('price', String(editPrice));
-					fd.append('quantity', String(quantityValue));
-					fd.append('description', editDescription);
-					fd.append('categoryId', editCategoryId);
-					fd.append('subcategoryId', editCategoryId ? editSubcategoryId : '');
-					fd.append('image', editImageFile);
-					init = { method: 'PATCH', body: fd };
+					const formData = new FormData();
+					formData.append('name', editName.trim());
+					formData.append('price', String(editPrice));
+					formData.append('quantity', String(quantityValue));
+					formData.append('description', editDescription);
+					formData.append('categoryId', editCategoryId);
+					formData.append('subcategoryId', editCategoryId ? editSubcategoryId : '');
+					formData.append('image', editImageFile);
+					request = {
+						method: 'PATCH',
+						body: formData
+					};
 				} else {
-					init = {
+					request = {
 						method: 'PATCH',
 						body: JSON.stringify({
 							categoryId: editCategoryId || null,
-							subcategoryId: editCategoryId ? editSubcategoryId || null : null,
+							subcategoryId: editCategoryId? editSubcategoryId || null : null,
 							name: editName.trim(),
 							price: editPrice,
 							quantity: quantityValue,
@@ -411,109 +582,157 @@
 					};
 				}
 
-				const updated = await api<Product>(`${API}/${editing.id}`, init);
-				products = products.map((p) => (p.id === updated.id ? { ...p, ...updated } : p));
-				imageErrors = new Set([...imageErrors].filter((id) => id !== updated.id));
+				const updated = await api<Product>(
+					`${API}/${editing.id}`,
+					request
+				);
+
+				products = products.map((product) =>
+					product.id === updated.id ? { ...product, ...updated }: product
+				);
+
+				imageErrors = new Set(
+					[...imageErrors].filter((id) => id !== updated.id)
+				);
 
 				clearEditImage();
 				editing = null;
 				notify('success', 'Changes saved.');
-			} catch (err) {
-				editError = err instanceof Error ? err.message : 'Could not save changes.';
+			} catch (error) {
+				editError =
+					error instanceof Error
+						? error.message
+						: 'Could not save changes.';
 			} finally {
 				saving = false;
 			}
 		}
 
 		async function removeProduct(id: string) {
+			if (deletingId) return;
+
 			deletingId = id;
+
 			try {
-				await api(`${API}/${id}`, { method: 'DELETE' });
-				products = products.filter((p) => p.id !== id);
+				await api(`${API}/${id}`, {
+					method: 'DELETE'
+				});
+
+				products = products.filter((product) => product.id !== id);
+				selected = selected.filter((selectedId) => selectedId !== id);
+				imageErrors = new Set( [...imageErrors].filter((imageId) => imageId !== id));
 				notify('success', 'Product deleted.');
-			} catch (err) {
-				notify('error', err instanceof Error ? err.message : 'Could not delete product.');
+			} catch (error) {
+				notify(
+					'error',
+					error instanceof Error ? error.message : 'Could not delete product.'
+				);
 			} finally {
 				deletingId = null;
 				confirmingId = null;
 			}
 		}
+
+		async function toggleActive(product: Product) {
+			if (togglingId === product.id) return;
+
+			const nextStatus = !product.isActive;
+			togglingId = product.id;
+			products = products.map((item) =>
+				item.id === product.id ? { ...item, isActive: nextStatus } : item
+			);
+
+			try {
+				const updated = await api<Product>(
+					`${API}/${product.id}`,
+					{
+						method: 'PATCH',
+						body: JSON.stringify({
+							isActive: nextStatus
+						})
+					}
+				);
+
+				products = products.map((item) =>
+					item.id === updated.id ? { ...item, ...updated } : item
+				);
+
+				notify('success', nextStatus ? 'Product activated.' : 'Product deactivated.');
+			} catch (error) {
+				
+				products = products.map((item) =>
+					item.id === product.id ? { ...item, isActive: !nextStatus }: item
+				);
+
+				notify('error', error instanceof Error? error.message: 'Could not update status.');
+			} finally {
+				togglingId = null;
+			}
+		}
 	//#endregion
 
-	onMount(async () => {
-		try {
-			[categories, subcategories, products] = await Promise.all([
-				api<Category[]>(CATEGORIES_API),
-				api<Subcategory[]>(SUBCATEGORIES_API),
-				api<Product[]>(API)
-			]);
-		} catch (e) {
-			notify('error', e instanceof Error ? e.message : 'Could not load data.');
-		} finally {
-			loading = false;
-		}
-	});
+	onMount(() => {
+		let active = true;
 
-	const sorted = $derived.by(() => {
-		const dir = sortDir === 'asc' ? 1 : -1;
-		return [...filtered].sort((a, b) => {
-			switch (sortKey) {
-				case 'name': return a.name.localeCompare(b.name) * dir;
-				case 'price': return (Number(a.price) - Number(b.price)) * dir;
-				case 'category': return catName(a.categoryId).localeCompare(catName(b.categoryId)) * dir;
-				default: return (new Date(a.createdAt ?? 0).getTime() - new Date(b.createdAt ?? 0).getTime()) * dir;
+		async function loadData() {
+			try {
+				const [
+					loadedCategories,
+					loadedSubcategories,
+					loadedProducts
+				] = await Promise.all([
+					api<Category[]>(CATEGORIES_API),
+					api<Subcategory[]>(SUBCATEGORIES_API),
+					api<Product[]>(API)
+				]);
+
+				if (!active) return;
+
+				categories = loadedCategories;
+				subcategories = loadedSubcategories;
+				products = loadedProducts;
+			} catch (error) {
+				if (!active) return;
+
+				notify(
+					'error',
+					error instanceof Error
+						? error.message
+						: 'Could not load data.'
+				);
+			} finally {
+				if (active) {
+					loading = false;
+				}
 			}
-		});
-	});
-	const pageSize = $derived(Number(pageSizeValue));
-	const paginated = $derived(sorted.slice((currentPage - 1) * pageSize, currentPage * pageSize));
-	const allSelected = $derived(paginated.length > 0 && paginated.every((p) => selected.includes(p.id)));
+		}
 
-    const hasActiveFilters = $derived(
-        !!filterCategoryId ||
-        !!filterSubId ||
-        !!search.trim()
-    );
+		void loadData();
 
-	const currentImage = $derived(
-		editing?.imageUrl && !imageErrors.has(editing.id) ? editing.imageUrl : ''
-	);
-	const shownImage = $derived(editImagePreview || currentImage);
+		return () => {
+			active = false;
 
-	const pageSizeItems = [8, 16, 24, 50].map((n) => ({ value: String(n), name: String(n) }));
-	
-	const totalPages = $derived(Math.max(1, Math.ceil(sorted.length / pageSize)));
-	
-	const rangeStart = $derived(sorted.length === 0 ? 0 : (currentPage - 1) * pageSize + 1);
-	const rangeEnd = $derived(Math.min(currentPage * pageSize, sorted.length));
-	const pageNumbers = $derived.by(() => {
-		const total = totalPages;
-		const cur = currentPage;
-		if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
+			if (toastTimer) {
+				clearTimeout(toastTimer);
+			}
 
-		const pages: (number | '…')[] = [1];
-		const start = Math.max(2, cur - 1);
-		const end = Math.min(total - 1, cur + 1);
-		if (start > 2) pages.push('…');
-		for (let i = start; i <= end; i++) pages.push(i);
-		if (end < total - 1) pages.push('…');
-		pages.push(total);
-		return pages;
+			if (imagePreview) {
+				URL.revokeObjectURL(imagePreview);
+			}
+
+			if (editImagePreview) {
+				URL.revokeObjectURL(editImagePreview);
+			}
+		};
 	});
 
-	// Go back to page 1 when search, filters, or page size change
-	$effect(() => {
-		search;
-		filterCategoryId;
-		filterSubId;
-		pageSizeValue;
-		currentPage = 1;
-	});
+	$effect(() => { search;filterCategoryId;filterSubId;pageSizeValue;currentPage = 1;});
+	$effect(() => {if (currentPage > totalPages) {currentPage = totalPages;}});
+	const pageSizeItems = [8, 16, 24, 50].map((number) => ({
+		value: String(number),
+		name: String(number)
+	}));
 
-	// If the last row of the last page is deleted, step back a page
-	$effect(() => {
-		if (currentPage > totalPages) currentPage = totalPages;
-	});
 </script>
 
 <svelte:window onkeydown={(e) => e.key === 'Escape' && closeEdit()} />
